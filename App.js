@@ -4,6 +4,7 @@ import { View, StyleSheet, Button, Text } from 'react-native';
 import * as Location from 'expo-location';
 import axios from 'axios'; // Добавьте axios для запросов
 import { mapData } from './data'; // Импорт GeoJSON из вашего файла
+import haversine from "haversine"; // Убедитесь, что у вас установлен модуль haversine для расчета расстояний
 
 const filterGeojsonByFloor = (geojson, selectedFloor) => {
   return {
@@ -12,6 +13,46 @@ const filterGeojsonByFloor = (geojson, selectedFloor) => {
       feature => feature.properties.level === selectedFloor.toString() && feature.geometry.type === "LineString"
     ),
   };
+};
+
+// Функция для расчета расстояния между двумя координатами
+const calculateDistance = (point1, point2) => {
+  const R = 6371e3; // Радиус Земли в метрах
+  const φ1 = (point1.latitude * Math.PI) / 180;
+  const φ2 = (point2.latitude * Math.PI) / 180;
+  const Δφ = ((point2.latitude - point1.latitude) * Math.PI) / 180;
+  const Δλ = ((point2.longitude - point1.longitude) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Возвращает расстояние в метрах
+};
+
+// Функция для поиска ближайшей точки с тегом where
+const findNearestPoint = (targetPoint, geojson) => {
+  let nearest = null;
+  let minDistance = Infinity;
+
+  geojson.features.forEach((feature) => {
+    if (
+      feature.properties.where &&
+      ["outdoor", "door", "indoor"].includes(feature.properties.where)
+    ) {
+      const { coordinates } = feature.geometry;
+      const [longitude, latitude] = coordinates;
+      const distance = haversine(targetPoint, { latitude, longitude });
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = { latitude, longitude, where: feature.properties.where };
+      }
+    }
+  });
+
+  return nearest;
 };
 
 const MapNavigator = () => {
@@ -84,14 +125,15 @@ const MapNavigator = () => {
     setEndPoint(event.nativeEvent.coordinate);
   };
 
+
   const buildRoute = async () => {
     if (!startPoint || !endPoint) {
       console.log("Начальная и/или конечная точка не установлены");
       return;
     }
-
+  
     console.log("Построение маршрута от:", startPoint, "до:", endPoint);
-
+  
     try {
       const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${startPoint.longitude},${startPoint.latitude};${endPoint.longitude},${endPoint.latitude}?geometries=geojson`);
       
@@ -102,6 +144,29 @@ const MapNavigator = () => {
         }));
         setRoute(coordinates);
         console.log("Маршрут построен:", coordinates);
+  
+        // Конечная точка маршрута
+        const routeEndPoint = coordinates[coordinates.length - 1];
+        console.log("Конечная точка маршрута:", routeEndPoint);
+  
+        // Поиск ближайшей точки с тегом where
+        const nearestPoint = findNearestPoint(routeEndPoint, mapData);
+        if (nearestPoint) {
+          console.log("Ближайшая точка с тегом where:", nearestPoint);
+  
+          // Расчет расстояний
+          const distanceToRouteEnd = haversine(endPoint, routeEndPoint);
+          const distanceToNearestWhere = haversine(endPoint, nearestPoint);
+  
+          // Сравнение и вывод в консоль ближайшей точки
+          if (distanceToRouteEnd <= distanceToNearestWhere) {
+            console.log("Ближайшая к конечной точке маршрута:", routeEndPoint);
+          } else {
+            console.log("Ближайшая к конечной точке с тегом where:", nearestPoint);
+          }
+        } else {
+          console.log("Подходящая точка с тегом where не найдена.");
+        }
       } else {
         console.log("Маршрут не найден");
       }
@@ -109,7 +174,7 @@ const MapNavigator = () => {
       console.error("Ошибка при построении маршрута:", error);
     }
   };
-
+  
   const clearRoute = () => {
     setRoute([]);
     setStartPoint(null);
@@ -127,7 +192,7 @@ const MapNavigator = () => {
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           }}
-          onPress={handleSetEnd} // Обработка нажатия на карту для установки конечной точки
+          onPress={handleSetEnd}
         >
           <Marker coordinate={userLocation} title="Вы находитесь здесь" pinColor="blue" />
           {startPoint && <Marker coordinate={startPoint} title="Начальная точка" pinColor="green" />}
