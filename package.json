@@ -1,11 +1,10 @@
 {
   "name": "osm_navig",
   "version": "1.0.0",
-  "main": "expo/AppEntry.js",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -15,7 +14,10 @@
     "expo-status-bar": "~1.12.1",
     "haversine": "^1.1.1",
     "react": "18.2.0",
+    "react-loading": "^2.0.3",
     "react-native": "0.74.5",
+    "react-native-loading-spinner-overlay": "^3.0.1",
+    "react-native-loading-view": "^1.0.1",
     "react-native-maps": "1.14.0"
   },
   "devDependencies": {

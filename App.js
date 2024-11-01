@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import { View, StyleSheet, Button, Text } from 'react-native';
+import { View, StyleSheet, Button, Text, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import axios from 'axios'; // Добавьте axios для запросов
 import { mapData } from './data'; // Импорт GeoJSON из вашего файла
-import haversine from "haversine"; // Убедитесь, что у вас установлен модуль haversine для расчета расстояний
+import LoadingView from 'react-native-loading-view'
 
 const filterGeojsonByFloor = (geojson, selectedFloor) => {
   return {
@@ -15,53 +15,14 @@ const filterGeojsonByFloor = (geojson, selectedFloor) => {
   };
 };
 
-// Функция для расчета расстояния между двумя координатами
-const calculateDistance = (point1, point2) => {
-  const R = 6371e3; // Радиус Земли в метрах
-  const φ1 = (point1.latitude * Math.PI) / 180;
-  const φ2 = (point2.latitude * Math.PI) / 180;
-  const Δφ = ((point2.latitude - point1.latitude) * Math.PI) / 180;
-  const Δλ = ((point2.longitude - point1.longitude) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // Возвращает расстояние в метрах
-};
-
-// Функция для поиска ближайшей точки с тегом where
-const findNearestPoint = (targetPoint, geojson) => {
-  let nearest = null;
-  let minDistance = Infinity;
-
-  geojson.features.forEach((feature) => {
-    if (
-      feature.properties.where &&
-      ["outdoor", "door", "indoor"].includes(feature.properties.where)
-    ) {
-      const { coordinates } = feature.geometry;
-      const [longitude, latitude] = coordinates;
-      const distance = haversine(targetPoint, { latitude, longitude });
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = { latitude, longitude, where: feature.properties.where };
-      }
-    }
-  });
-
-  return nearest;
-};
-
 const MapNavigator = () => {
+  const [zoomLevel, setZoomLevel] = useState(0);
   const [userLocation, setUserLocation] = useState(null);
   const [indoorMapData, setIndoorMapData] = useState({ type: "FeatureCollection", features: [] });
   const [selectedFloor, setSelectedFloor] = useState(1);
-  const [startPoint, setStartPoint] = useState(null);
   const [endPoint, setEndPoint] = useState(null);
   const [route, setRoute] = useState([]);
+  const [bool,setBool] = useState(false);
   const [locationSubscription, setLocationSubscription] = useState(null);
 
   useEffect(() => {
@@ -71,11 +32,13 @@ const MapNavigator = () => {
         alert('Разрешение на доступ к геолокации отклонено');
         return;
       }
-
+      await Location.enableNetworkProviderAsync();
+      
       const subscription = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Highest, // Использует наивысшую доступную точность
           distanceInterval: 1,
+
         },
         (location) => {
           setUserLocation({
@@ -102,6 +65,12 @@ const MapNavigator = () => {
     setIndoorMapData(filteredData);
   }, [selectedFloor]);
 
+  useEffect(() => {
+    if(bool){
+    buildRoute();
+    }
+  }, [userLocation]);
+
   const handleLevelChange = (level, what) => {
     switch (what) {
       case "up":
@@ -117,25 +86,21 @@ const MapNavigator = () => {
     }
   };
 
-  const handleSetStart = () => {
-    setStartPoint(userLocation);
-  };
-
-  const handleSetEnd = (event) => {
-    setEndPoint(event.nativeEvent.coordinate);
+  const handleSetEnd = async (event) => {
+    setEndPoint(event.nativeEvent.coordinate)
   };
 
 
   const buildRoute = async () => {
-    if (!startPoint || !endPoint) {
-      console.log("Начальная и/или конечная точка не установлены");
+    if (!userLocation || !endPoint) {
+      // console.log("Начальная и/или конечная точка не установлены");
       return;
     }
   
-    console.log("Построение маршрута от:", startPoint, "до:", endPoint);
-  
+    console.log("Построение маршрута от:", userLocation, "до:", endPoint);
+    setBool(true);
     try {
-      const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${startPoint.longitude},${startPoint.latitude};${endPoint.longitude},${endPoint.latitude}?geometries=geojson`);
+      const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${endPoint.longitude},${endPoint.latitude}?geometries=geojson`);
       
       if (response.data.routes.length > 0) {
         const coordinates = response.data.routes[0].geometry.coordinates.map(([longitude, latitude]) => ({
@@ -143,30 +108,7 @@ const MapNavigator = () => {
           longitude,
         }));
         setRoute(coordinates);
-        console.log("Маршрут построен:", coordinates);
-  
-        // Конечная точка маршрута
-        const routeEndPoint = coordinates[coordinates.length - 1];
-        console.log("Конечная точка маршрута:", routeEndPoint);
-  
-        // Поиск ближайшей точки с тегом where
-        const nearestPoint = findNearestPoint(routeEndPoint, mapData);
-        if (nearestPoint) {
-          console.log("Ближайшая точка с тегом where:", nearestPoint);
-  
-          // Расчет расстояний
-          const distanceToRouteEnd = haversine(endPoint, routeEndPoint);
-          const distanceToNearestWhere = haversine(endPoint, nearestPoint);
-  
-          // Сравнение и вывод в консоль ближайшей точки
-          if (distanceToRouteEnd <= distanceToNearestWhere) {
-            console.log("Ближайшая к конечной точке маршрута:", routeEndPoint);
-          } else {
-            console.log("Ближайшая к конечной точке с тегом where:", nearestPoint);
-          }
-        } else {
-          console.log("Подходящая точка с тегом where не найдена.");
-        }
+        // console.log("Маршрут построен:", coordinates);
       } else {
         console.log("Маршрут не найден");
       }
@@ -177,9 +119,16 @@ const MapNavigator = () => {
   
   const clearRoute = () => {
     setRoute([]);
-    setStartPoint(null);
     setEndPoint(null);
+    setBool(false);
   };
+
+    // Функция отслеживающая изменения региона карты и вычисляющая уровень зума
+    const handleRegionChange = (region) => {
+      const zoom = Math.log2(360 / region.longitudeDelta);
+      setZoomLevel(Math.round(zoom));
+      // console.log('Zoom:', zoomLevel);
+    };
 
   return (
     <View style={styles.container}>
@@ -192,24 +141,27 @@ const MapNavigator = () => {
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           }}
+          onRegionChangeComplete={handleRegionChange}
           onPress={handleSetEnd}
         >
           <Marker coordinate={userLocation} title="Вы находитесь здесь" pinColor="blue" />
-          {startPoint && <Marker coordinate={startPoint} title="Начальная точка" pinColor="green" />}
           {endPoint && <Marker coordinate={endPoint} title="Конечная точка" pinColor="red" />}
-          {indoorMapData.features.map((feature) => (
-            feature.geometry && feature.geometry.type === "LineString" && (
-              <Polyline
-                key={feature.geometry.coordinates.toString()}
-                coordinates={feature.geometry.coordinates.map(([longitude, latitude]) => ({
-                  latitude,
-                  longitude,
-                }))}
-                strokeColor="#000"
-                strokeWidth={3}
-              />
-            )
-          ))}
+          {zoomLevel>16 &&
+            <View>
+              {indoorMapData.features.map((feature) => (
+                feature.geometry && feature.geometry.type === "LineString" && (
+                  <Polyline
+                    key={feature.geometry.coordinates.toString()}
+                    coordinates={feature.geometry.coordinates.map(([longitude, latitude]) => ({
+                      latitude,
+                      longitude,
+                    }))}
+                    strokeColor="#000"
+                    strokeWidth={3}
+                  />
+                )
+              ))}
+            </View>}
           {route.length > 0 && (
             <Polyline
               coordinates={route}
@@ -219,21 +171,25 @@ const MapNavigator = () => {
             />
           )}
         </MapView>
-      ) : (
-        <Text>Получение местоположения...</Text>
+      ) : (      
+        <LoadingView loading={true} size={100} >
+        </LoadingView> 
       )}
 
-      <View style={styles.levelControls}>
-        <Button title="⬆️" onPress={() => handleLevelChange(selectedFloor, "up")} />
-        <Text style={styles.levelText}>Этаж: {selectedFloor}</Text>
-        <Button title="⬇️" onPress={() => handleLevelChange(selectedFloor, "down")} />
-      </View>
+      {zoomLevel>16 &&
+        <View style={styles.levelControls}>
+          <Button title="⬆️" onPress={() => handleLevelChange(selectedFloor, "up")} />
+          <Text style={styles.levelText}>Этаж: {selectedFloor}</Text>
+          <Button title="⬇️" onPress={() => handleLevelChange(selectedFloor, "down")} />
+        </View>}
 
-      <View style={styles.routeControls}>
-        <Button title="Установить Начальную Точку" onPress={handleSetStart} />
-        <Button title="Построить Маршрут" onPress={buildRoute} disabled={!startPoint || !endPoint} />
-        <Button title="Очистить" onPress={clearRoute} />
-      </View>
+
+      {endPoint ? (
+        <View style={styles.routeControls}>
+          <Button title="Построить Маршрут" onPress={buildRoute}  />
+          <Button title="Очистить" onPress={clearRoute} />
+        </View>
+      ): ( <View/> )}
     </View>
   );
 };
