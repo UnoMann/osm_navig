@@ -1,1 +1,1 @@
-osm карта + geojson карта + chat gpt = это
+Osm routs + google maps + gps/ble navig = this project :D
