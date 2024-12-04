@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef  } from 'react';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { View, StyleSheet, Button, TextInput, FlatList, TouchableOpacity, Text } from 'react-native';
 import * as Location from 'expo-location';
@@ -6,15 +6,24 @@ import axios from 'axios'; // Добавьте axios для запросов
 import { mapData } from './data'; // Импорт GeoJSON из вашего файла
 import LoadingView from 'react-native-loading-view'
 import haversine from "haversine"; // Убедитесь, что у вас установлен модуль haversine для расчета расстояний
+import { startScanning, stopScanning, getUserLocation, getBleReady } from './components/getUserLocationBle';
 
-const filterGeojsonByFloor = (geojson, selectedFloor) => {
-  return {
-    type: "FeatureCollection",
-    features: geojson.features.filter(
-      feature => feature.properties.level === selectedFloor.toString() && feature.geometry.type === "LineString"
-    ),
+
+ let userLocation2 = null;
+const whitelist = [
+  { uuid: '02150190-7856-3412-3412-341234127856', latitude: 53.42205406588, longitude: 58.98129668738 },
+  { uuid: '02150290-7856-3412-3412-341234127856', latitude: 53.42208803109, longitude: 58.98130207040 },
+  { uuid: '02150390-7856-3412-3412-341234127856', latitude: 53.42206192661, longitude: 58.98128455488 },
+];
+
+  const filterGeojsonByFloor = (geojson, selectedFloor) => {
+    return {
+      type: "FeatureCollection",
+      features: geojson.features.filter(
+        feature => feature.properties.level === selectedFloor.toString() && feature.geometry.type === "LineString"
+      ),
+    };
   };
-};
 
 const MapNavigator = () => {
   const [zoomLevel, setZoomLevel] = useState(0);
@@ -26,41 +35,101 @@ const MapNavigator = () => {
   const [locationSubscription, setLocationSubscription] = useState(null);
   const [route, setRoute] = useState([]);
   const [bool,setBool] = useState(false);
+  const [ble,setBle] = useState(false);
+  const [bleReady,setBleReady] = useState(false);
+  const bleRef = useRef(ble);
+ 
+  
 
   useEffect(() => {
-    const getLocation = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Разрешение на доступ к геолокации отклонено');
-        return;
-      }
-      await Location.enableNetworkProviderAsync();
-      
-      const subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.Highest, // Использует наивысшую доступную точность
-          distanceInterval: 1,
+    bleRef.current = ble; // Синхронизация с состоянием
+  }, [ble]);
 
-        },
-        (location) => {
+  // GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS GPS
+  const getLocation = async () => {
+
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Разрешение на доступ к геолокации отклонено');
+      return;
+    }
+    await Location.enableNetworkProviderAsync();
+    
+    const subscription = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Highest, // Использует наивысшую доступную точность
+        distanceInterval: 1,
+
+      },
+      (location) => { 
+        if(!bleRef.current){
           setUserLocation({
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
           });
+          userLocation2 = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
         }
-      );
 
-      setLocationSubscription(subscription);
-    };
+      }
+    );
 
-    getLocation();
+    setLocationSubscription(subscription);
+  };
+  useEffect(() => {
+    startScanning(whitelist);
+    SetReadyBle();
+    fetchLocation();
+
 
     return () => {
-      if (locationSubscription) {
-        locationSubscription.remove();
-      }
+      stopScanning();
     };
   }, []);
+  const SetReadyBle = async () => {
+    if(!bleReady){
+      try{
+        const isReady = await getBleReady(); // Если getBleReady возвращает промис
+        setBleReady(isReady);
+        // console.log (bleReady+" / "+isReady)
+        setTimeout(() => {
+          SetReadyBle();
+        }, 1000);
+      } catch (error) {
+        console.log('SetReadyBle: Error fSetReadyBle:', error.message);
+      }
+    }
+  }
+  
+  const fetchLocation = async () => {
+    try {
+      console.log("BLE =", bleRef.current); // Используем актуальное значение
+      if (bleRef.current) {
+        if (locationSubscription) {
+          await locationSubscription.remove(); // Отключить GPS подписку
+          setLocationSubscription(null);
+        }
+        const location = await getUserLocation();
+        console.log("////////////// BLE режим активирован");
+        if (location) {
+          setUserLocation(location);
+          userLocation2 = location;
+          // console.log(userLocation2);
+        } else {
+          console.log("BLE не возвращает корректную локацию");
+        }
+      } else {
+        console.log("////////////// GPS режим активирован");
+        getLocation();
+      }
+      setTimeout(fetchLocation, 1000); // Запуск повторно
+    } catch (error) {
+      console.log("Ошибка получения локации:", error.message);
+    }
+  };
+  
 
   useEffect(() => {
     const filteredData = filterGeojsonByFloor(mapData, selectedFloor);
@@ -112,14 +181,15 @@ const findNearestPoint = (targetPoint, geojson) => {
   return nearest;
 };
   const buildRoute = async () => {
-    if (!userLocation || !endPoint) {
+    if (!userLocation2 || !endPoint) {
       console.log("Начальная и/или конечная точка не установлены");
       return;
     }
   
-    console.log("Построение маршрута от:", userLocation, "до:", endPoint);
+    setBool(true);
+    console.log("Построение маршрута от:", userLocation2, "до:", endPoint);
     try {
-      const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${endPoint.longitude},${endPoint.latitude}?geometries=geojson`);
+      const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${userLocation2.longitude},${userLocation2.latitude};${endPoint.longitude},${endPoint.latitude}?geometries=geojson`);
   
       if (response.data.routes.length > 0) {
         const coordinates = response.data.routes[0].geometry.coordinates.map(([longitude, latitude]) => ({
@@ -243,7 +313,7 @@ const findNearestPoint = (targetPoint, geojson) => {
               // Добавляем ближайшую точку как конечную
               linePath.push(closestLinePoint);        
 
-              const response2 = await axios.get(`https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${linePath[0].longitude},${linePath[0].latitude}?geometries=geojson`);
+              const response2 = await axios.get(`https://router.project-osrm.org/route/v1/driving/${userLocation2.longitude},${userLocation2.latitude};${linePath[0].longitude},${linePath[0].latitude}?geometries=geojson`);
               const coordinates2 = response2.data.routes[0].geometry.coordinates.map(([longitude, latitude]) => ({
                 latitude,
                 longitude,
@@ -269,9 +339,9 @@ const findNearestPoint = (targetPoint, geojson) => {
   };
   
   const clearRoute = () => {
-    setRoute([]);
-    setEndPoint(null);
     setBool(false);
+    setEndPoint(null);
+    setRoute([]);
   };
 
     // Функция отслеживающая изменения региона карты и вычисляющая уровень зума
@@ -296,7 +366,7 @@ const findNearestPoint = (targetPoint, geojson) => {
               onRegionChangeComplete={handleRegionChange}
               onPress={handleSetEnd}
             >
-            <Marker coordinate={userLocation} title="Вы находитесь здесь" pinColor="blue" />
+            <Marker coordinate={userLocation2} title="Вы находитесь здесь" pinColor="blue" />
             {endPoint && <Marker coordinate={endPoint} title="Конечная точка" pinColor="red" />}
             {zoomLevel>16 &&
               <View>
@@ -322,12 +392,32 @@ const findNearestPoint = (targetPoint, geojson) => {
                 lineDashPattern={[5, 5]}
               />
             )}
+            
           </MapView>
         </View>
       ) : (      
         <LoadingView loading={true} size={100} >
         </LoadingView> 
       )}
+      {userLocation && 
+      <View 
+      style={styles.topRight}>
+        <Button
+          title={ble ? "BLE" : "GPS"}
+          onPress={() => {    
+            setBle((prevBle) => {
+            if (locationSubscription) {
+              locationSubscription.remove(); // Отключить GPS подписку
+              setLocationSubscription(null);
+            }
+            console.log("BLE изменено на:", !prevBle); // Проверка
+            return !prevBle;
+            });
+          }}
+          disabled={!bleReady}
+        />
+      </View>}
+      
       {zoomLevel>16 &&
         <View style={styles.levelControls}>
           <Button title="⬆️" onPress={() => handleLevelChange(selectedFloor, "up")} />
@@ -362,6 +452,16 @@ const styles = StyleSheet.create({
   levelControls: {
     position: 'absolute',
     bottom: 80,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  topRight: {
+    position: 'absolute',
+    start: 150,
+    top:10,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',

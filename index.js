@@ -1,5 +1,6 @@
 import { registerRootComponent } from 'expo';
 
+// import App from "react-native-ble-manager/example/App"; //<-- simply point to the example js!
 import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
