@@ -9,7 +9,7 @@ import haversine from "haversine"; // Убедитесь, что у вас ус�
 import { startScanning, stopScanning, getUserLocation, getBleReady } from './components/getUserLocationBle';
 
 
- let userLocation2 = null;
+let userLocation2 = null;
 const whitelist = [
   { uuid: '02150190-7856-3412-3412-341234127856', latitude: 53.42205406588, longitude: 58.98129668738 },
   { uuid: '02150290-7856-3412-3412-341234127856', latitude: 53.42208803109, longitude: 58.98130207040 },
@@ -34,10 +34,14 @@ const MapNavigator = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [locationSubscription, setLocationSubscription] = useState(null);
   const [route, setRoute] = useState([]);
-  const [bool,setBool] = useState(false);
   const [ble,setBle] = useState(false);
+  const [bool,setBool] = useState(false);
   const [bleReady,setBleReady] = useState(false);
+  const [routeDistance, setRouteDistance] = useState(null);
   const bleRef = useRef(ble);
+
+  const [isBuildingRoute, setIsBuildingRoute] = useState(false);
+
  
   
 
@@ -88,6 +92,30 @@ const MapNavigator = () => {
       stopScanning();
     };
   }, []);
+
+  useEffect(() => {
+    const filteredData = filterGeojsonByFloor(mapData, selectedFloor);
+    setIndoorMapData(filteredData);
+  }, [selectedFloor]);
+
+  useEffect(() => {
+    const buildRouteAsync = async () => {
+      if (bool && !isBuildingRoute) {
+        setIsBuildingRoute(true); // Устанавливаем блокировку
+        try {
+          await buildRoute(); // Ждем выполнения маршрута
+        } catch (error) {
+          console.error("Ошибка при построении маршрута:", error);
+        } finally {
+          setIsBuildingRoute(false); // Снимаем блокировку
+        }
+      }
+    };
+  
+    buildRouteAsync(); // Вызов асинхронной функции
+  }, [userLocation, bool]); // bool добавлен для синхронизации с состоянием
+  
+  
   const SetReadyBle = async () => {
     if(!bleReady){
       try{
@@ -101,18 +129,17 @@ const MapNavigator = () => {
         console.log('SetReadyBle: Error fSetReadyBle:', error.message);
       }
     }
-  }
-  
+  };
   const fetchLocation = async () => {
     try {
-      console.log("BLE =", bleRef.current); // Используем актуальное значение
+      // console.log("BLE =", bleRef.current); // Используем актуальное значение
       if (bleRef.current) {
         if (locationSubscription) {
           await locationSubscription.remove(); // Отключить GPS подписку
           setLocationSubscription(null);
         }
         const location = await getUserLocation();
-        console.log("////////////// BLE режим активирован");
+        // console.log("////////////// BLE режим активирован");
         if (location) {
           setUserLocation(location);
           userLocation2 = location;
@@ -121,7 +148,7 @@ const MapNavigator = () => {
           console.log("BLE не возвращает корректную локацию");
         }
       } else {
-        console.log("////////////// GPS режим активирован");
+        // console.log("////////////// GPS режим активирован");
         getLocation();
       }
       setTimeout(fetchLocation, 1000); // Запуск повторно
@@ -129,19 +156,6 @@ const MapNavigator = () => {
       console.log("Ошибка получения локации:", error.message);
     }
   };
-  
-
-  useEffect(() => {
-    const filteredData = filterGeojsonByFloor(mapData, selectedFloor);
-    setIndoorMapData(filteredData);
-  }, [selectedFloor]);
-
-  useEffect(() => {
-    if(bool){
-    buildRoute();
-    }
-  }, [userLocation]);
-
   const handleLevelChange = (level, what) => {
     switch (what) {
       case "up":
@@ -157,12 +171,12 @@ const MapNavigator = () => {
     }
   };
   const handleSetEnd = async (event) => {
-    setEndPoint(event.nativeEvent.coordinate)
+    if(!bool){
+      setEndPoint(event.nativeEvent.coordinate)
+    }
   };
-
-
-// Функция для поиска ближайшей точки с тегом custom
-const findNearestPoint = (targetPoint, geojson) => {
+  // Функция для поиска ближайшей точки с тегом custom
+  const findNearestPoint = (targetPoint, geojson) => {
   let nearest = null;
   let minDistance = Infinity;
   geojson.features.forEach((feature) => {
@@ -179,7 +193,16 @@ const findNearestPoint = (targetPoint, geojson) => {
     }
   });
   return nearest;
-};
+  };
+  const calculateRouteDistance = (routeCoordinates) => {
+  let distance = 0;
+  for (let i = 0; i < routeCoordinates.length - 1; i++) {
+    const start = routeCoordinates[i];
+    const end = routeCoordinates[i + 1];
+    distance += haversine(start, end, { unit: "meter" }); // Расстояние в метрах
+  }
+  return distance;
+  };
   const buildRoute = async () => {
     if (!userLocation2 || !endPoint) {
       console.log("Начальная и/или конечная точка не установлены");
@@ -215,6 +238,8 @@ const findNearestPoint = (targetPoint, geojson) => {
   
             // Используем маршрут от OSM
             setRoute(coordinates); // Устанавливаем маршрут от OSM
+            const distance = calculateRouteDistance(coordinates);
+            setRouteDistance(distance); // Сохранение расстояния в состоянии
           } else {
             console.log("Построение маршрута по линиям");
   
@@ -321,6 +346,8 @@ const findNearestPoint = (targetPoint, geojson) => {
 
               // Устанавливаем маршрут
               setRoute([...coordinates2,...linePath]); // Устанавливаем новый маршрут по линиям
+              const distance = calculateRouteDistance([...coordinates2,...linePath]);
+              setRouteDistance(distance); // Сохранение расстояния в состоянии
             } else {
               console.log("Не удалось найти ближайшую точку на линии.");
             }
@@ -337,20 +364,21 @@ const findNearestPoint = (targetPoint, geojson) => {
       console.error("Ошибка при построении маршрута:", error);
     }
   };
-  
+
   const clearRoute = () => {
     setBool(false);
     setEndPoint(null);
     setRoute([]);
+    setRouteDistance(null); // Сброс расстояния
   };
 
-    // Функция отслеживающая изменения региона карты и вычисляющая уровень зума
-    const handleRegionChange = (region) => {
+  // Функция отслеживающая изменения региона карты и вычисляющая уровень зума
+  const handleRegionChange = (region) => {
       const zoom = Math.log2(360 / region.longitudeDelta);
       setZoomLevel(Math.round(zoom));
       // console.log('Zoom:', zoomLevel);
-    };   
-        
+  };   
+
   return (
     <View style={styles.container}>
       {userLocation ? (  
@@ -399,6 +427,13 @@ const findNearestPoint = (targetPoint, geojson) => {
         <LoadingView loading={true} size={100} >
         </LoadingView> 
       )}
+      {routeDistance !== null && (
+        <View style={styles.distanceContainer}>
+          <Text style={styles.distanceText}>
+            Дистанция маршрута: {(routeDistance / 1000).toFixed(2)} км
+          </Text>
+        </View>
+      )}
       {userLocation && 
       <View 
       style={styles.topRight}>
@@ -442,6 +477,18 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  distanceContainer: {
+    position: 'absolute',
+    bottom: 50,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  distanceText: {
+    color: 'black',
+    fontSize: 16,
+  },  
   searchInput:{
     textAlign: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.1)',

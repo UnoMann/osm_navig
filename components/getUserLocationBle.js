@@ -72,7 +72,7 @@ function calculateLocation(whitelist, devices) {
 
   const latitude = coordinates.reduce((sum, c) => sum + c.latitude * c.weight, 0) / totalWeight;
   const longitude = coordinates.reduce((sum, c) => sum + c.longitude * c.weight, 0) / totalWeight;
-  console.log({ latitude, longitude })
+  // console.log({ latitude, longitude })
   return { latitude, longitude };
 }
 
