@@ -10,6 +10,7 @@ import { startScanning, stopScanning, getUserLocation, getBleReady } from './com
 
 
 let userLocation2 = null;
+const humanSpeed = 5; // км/ч
 const whitelist = [
   { uuid: '02150190-7856-3412-3412-341234127856', latitude: 53.42205406588, longitude: 58.98129668738 },
   { uuid: '02150290-7856-3412-3412-341234127856', latitude: 53.42208803109, longitude: 58.98130207040 },
@@ -37,10 +38,10 @@ const MapNavigator = () => {
   const [ble,setBle] = useState(false);
   const [bool,setBool] = useState(false);
   const [bleReady,setBleReady] = useState(false);
-  const [routeDistance, setRouteDistance] = useState(null);
   const bleRef = useRef(ble);
 
   const [isBuildingRoute, setIsBuildingRoute] = useState(false);
+  const [routeDistance, setRouteDistance] = useState(null);
 
  
   
@@ -110,6 +111,11 @@ const MapNavigator = () => {
           setIsBuildingRoute(false); // Снимаем блокировку
         }
       }
+      // else{
+      //   setEndPoint(null);
+      //   setRoute([]);
+      //   setRouteDistance(null); // Сброс расстояния
+      // }
     };
   
     buildRouteAsync(); // Вызов асинхронной функции
@@ -195,13 +201,14 @@ const MapNavigator = () => {
   return nearest;
   };
   const calculateRouteDistance = (routeCoordinates) => {
-  let distance = 0;
-  for (let i = 0; i < routeCoordinates.length - 1; i++) {
-    const start = routeCoordinates[i];
-    const end = routeCoordinates[i + 1];
-    distance += haversine(start, end, { unit: "meter" }); // Расстояние в метрах
-  }
-  return distance;
+    let distance = 0;
+    for (let i = 0; i < routeCoordinates.length - 1; i++) {
+      const start = routeCoordinates[i];
+      const end = routeCoordinates[i + 1];
+      distance += haversine(start, end, { unit: "meter" }); // Расстояние в метрах
+    }
+
+    return distance;
   };
   const buildRoute = async () => {
     if (!userLocation2 || !endPoint) {
@@ -430,7 +437,10 @@ const MapNavigator = () => {
       {routeDistance !== null && (
         <View style={styles.distanceContainer}>
           <Text style={styles.distanceText}>
-            Дистанция маршрута: {(routeDistance / 1000).toFixed(2)} км
+            Дистанция маршрута: {(routeDistance / 1000).toFixed(2)} км,
+          </Text>
+          <Text style={styles.distanceText}>
+            примерное время: {(routeDistance/1000*humanSpeed*6).toFixed(0)} мин
           </Text>
         </View>
       )}
@@ -498,7 +508,7 @@ const styles = StyleSheet.create({
   },
   levelControls: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 100,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
