@@ -53,27 +53,63 @@ function parseUUID(manufacturerData) {
   return `${uuid.slice(0, 8)}-${uuid.slice(8, 12)}-${uuid.slice(12, 16)}-${uuid.slice(16, 20)}-${uuid.slice(20)}`;
 }
 
-// Функция триангуляции
-function calculateLocation(whitelist, devices) {
-  // console.log('GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC ')
-  const coordinates = devices.map(device => {
-    const beacon = whitelist.find(w => w.uuid === device.uuid);
-    if (!beacon) return null;
-
-    const weight = 1 / Math.pow(10, Math.abs(device.rssi) / 10); // Вес по RSSI
-    return { ...beacon, weight };
-  }).filter(Boolean); // Убираем null-значения
-
-  const totalWeight = coordinates.reduce((sum, c) => sum + c.weight, 0);
-
-  if (totalWeight === 0) {
-    throw new Error('Invalid weights, cannot calculate location');
+// Улучшенный расчет расстояния с учетом шума и корректировок
+function calculateDistance(txPower, rssi) {
+  if (rssi === 0) {
+    return -1; // Если RSSI равен 0, то расстояние не может быть рассчитано
   }
 
-  const latitude = coordinates.reduce((sum, c) => sum + c.latitude * c.weight, 0) / totalWeight;
-  const longitude = coordinates.reduce((sum, c) => sum + c.longitude * c.weight, 0) / totalWeight;
-  // console.log({ latitude, longitude })
-  return { latitude, longitude };
+  const ratio = rssi * 1.0 / txPower;
+  if (ratio < 1.0) {
+    return Math.pow(ratio, 10);
+  } else {
+    const accuracy = (0.89976) * Math.pow(ratio, 7.7095) + 0.111;
+    return accuracy;
+  }
+}
+
+// Расчет позиции с использованием мультилатерации
+function calculateLocation(whitelist, devices) {
+  const PATH_LOSS_EXPONENT = 2; // Коэффициент затухания
+  const MIN_DISTANCE = 0.1; // Минимальное расстояние
+  const MAX_DISTANCE = 100; // Максимальное расстояние
+  const DEFAULT_TXPOWER = -59; // Стандартная мощность передатчика
+
+  const beaconData = devices.map(device => {
+    const beacon = whitelist.find(w => w.uuid === device.uuid);
+    if (!beacon || device.rssi >= 0) return null;
+
+    const txPower = beacon.txPower ?? DEFAULT_TXPOWER;
+    const distance = calculateDistance(txPower, device.rssi);
+
+    if (distance < MIN_DISTANCE || distance > MAX_DISTANCE) return null;
+
+    return {
+      latitude: beacon.latitude,
+      longitude: beacon.longitude,
+      distance,
+    };
+  }).filter(Boolean);
+
+  if (beaconData.length < 3) {
+    console.warn('Not enough beacons for triangulation');
+    return null;
+  }
+
+  // Мультилатерация
+  const totalWeight = beaconData.reduce((sum, c) => sum + 1 / c.distance, 0);
+
+  const weightedLatitude = beaconData.reduce(
+    (sum, c) => sum + (c.latitude / c.distance),
+    0
+  ) / totalWeight;
+
+  const weightedLongitude = beaconData.reduce(
+    (sum, c) => sum + (c.longitude / c.distance),
+    0
+  ) / totalWeight;
+
+  return { latitude: weightedLatitude, longitude: weightedLongitude };
 }
 
 // Метод для запуска бесконечного сканирования
@@ -82,8 +118,8 @@ export async function startScanning(inputWhitelist) {
     console.warn('Scanning is already in progress');
     return;
   }
-  
-  whitelist = inputWhitelist; // Устанавливаем whitelist
+
+  whitelist = inputWhitelist;
   await requestPermissions();
 
   isScanning = true;
@@ -91,7 +127,7 @@ export async function startScanning(inputWhitelist) {
   manager.startDeviceScan(null, null, (error, device) => {
     if (error) {
       console.error('BLE scan error:', error);
-      isScanning = false; // Устанавливаем флаг в false
+      isScanning = false;
       return;
     }
 
@@ -99,50 +135,61 @@ export async function startScanning(inputWhitelist) {
       const uuid = parseUUID(device.manufacturerData);
 
       if (uuid && whitelist.some(w => w.uuid === uuid)) {
-        // console.log(device.name+"<=name, "+uuid+"<=uuid.");
         const existingIndex = devices.findIndex(d => d.uuid === uuid);
 
         if (existingIndex !== -1) {
-          devices[existingIndex] = { uuid, rssi: device.rssi };
+          devices[existingIndex] = { uuid, rssi: device.rssi, lastSeen: Date.now() };
         } else {
-          devices.push({ uuid, rssi: device.rssi });
+          devices.push({ uuid, rssi: device.rssi, lastSeen: Date.now() });
         }
-        if(devices.length>=3){
-          readyForReturn=true;
-          // console.log("READY - "+readyForReturn)
+
+        if (devices.length >= 3) {
+          readyForReturn = true;
           userLocation = calculateLocation(whitelist, devices);
         }
       }
     }
+
+    removeOldDevices();
   });
 
   console.log('BLE scanning started...');
 }
 
-// Метод для остановки сканирования
+// Удаление старых устройств
+function removeOldDevices(timeoutMs = 5000) {
+  const now = Date.now();
+  devices.forEach((device, index) => {
+    if (now - device.lastSeen > timeoutMs) {
+      devices.splice(index, 1);
+    }
+  });
+}
+
+// Остановка сканирования
 export function stopScanning() {
   if (isScanning) {
     manager.stopDeviceScan();
     isScanning = false;
-    devices.length = 0; // Очистка устройств
-    userLocation = null; // Сброс локации
-    readyForReturn = false; // Сброс флага готовности
+    devices.length = 0;
+    userLocation = null;
+    readyForReturn = false;
     console.log('BLE scanning stopped.');
   }
 }
 
-
-// Метод для получения текущей локации
+// Получение текущей локации
 export function getUserLocation() {
-  // console.log('GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC GETUSERLOC ')
   if (readyForReturn) {
+    console.log("(La,Lo) Позиция по BLE = ", userLocation.latitude, ", ", userLocation.longitude);
     return userLocation;
-  }else{
-    // console.log('Not enough BLE beacons found to calculate location.');
-    return null; // Возвращаем null вместо выбрасывания ошибки
+  } else {
+    console.warn('Not enough BLE beacons found to calculate location.');
+    return null;
   }
 }
+
+// Проверка готовности
 export function getBleReady() {
-  // console.log("READY - "+readyForReturn)
   return readyForReturn;
 }
