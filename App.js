@@ -46,6 +46,69 @@ const MapNavigator = () => {
     bleRef.current = ble;
   }, [ble]);
 
+  // Функция для проверки, находится ли точка внутри многоугольника
+  const isPointInPolygon = (point, polygon) => {
+    const x = point.latitude;
+    const y = point.longitude;
+    let inside = false;
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].latitude;
+      const yi = polygon[i].longitude;
+      const xj = polygon[j].latitude;
+      const yj = polygon[j].longitude;
+
+      const intersect = ((yi > y) !== (yj > y)) &&
+        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+
+      if (intersect) {
+        inside = !inside;
+      }
+    }
+
+    return inside;
+  };
+
+  // Функция для извлечения точек с тегами buildWall из GeoJSON
+  const getBuildingVerticesFromGeoJSON = (geojson) => {
+    const buildingVertices = [];
+
+    // Проходим по всем объектам в GeoJSON
+    geojson.features.forEach((feature) => {
+      if (feature.properties && feature.properties.buildWall) {
+        // Если у объекта есть свойство buildWall, добавляем его координаты
+        const coordinates = feature.geometry.coordinates;
+        buildingVertices.push({
+          latitude: coordinates[1], // GeoJSON использует порядок [longitude, latitude]
+          longitude: coordinates[0],
+          buildWall: feature.properties.buildWall, // Сохраняем тег для отладки
+        });
+      }
+    });
+
+    // Сортируем точки по тегу buildWall (1, 2, 3, 4)
+    buildingVertices.sort((a, b) => a.buildWall - b.buildWall);
+
+    return buildingVertices;
+  };
+
+  // Проверка, находится ли пользователь внутри здания
+  const isUserInsideBuilding = (userLocation, buildingVertices) => {
+    if (!userLocation || !buildingVertices || buildingVertices.length < 3) {
+      console.log("Недостаточно данных для проверки");
+      return false;
+    }
+
+    // Проверяем, находится ли точка внутри многоугольника
+    return isPointInPolygon(userLocation, buildingVertices);
+  };
+
+// // Пример вызова
+// const userLocation = { latitude: 53.422030, longitude: 58.981320 }; // Пример координат пользователя
+// const isInside = isUserInsideBuilding(userLocation, buildingVertices);
+
+// console.log(isInside ? "Пользователь внутри здания" : "Пользователь снаружи здания");
+
   // Получение местоположения через GPS
   const getLocation = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -194,6 +257,25 @@ const MapNavigator = () => {
     if (!userLocation2 || !endPoint) {
       console.log("Начальная и/или конечная точка не установлены");
       return;
+    }
+
+    const buildingVertices = getBuildingVerticesFromGeoJSON(mapData);
+    const isInside = isUserInsideBuilding(userLocation, buildingVertices);
+    const isEndInside = isUserInsideBuilding(endPoint, buildingVertices);
+    // console.log(isInside ? "Пользователь внутри здания" : "Пользователь снаружи здания");
+    // console.log(isEndInside ? "Метка внутри здания" : "Метка снаружи здания");
+    if(isInside){
+      if(isEndInside){ // внутри
+
+      }else{//изнутри наружу
+
+      }
+    }else{
+      if(isEndInside){ // снаружи внутрь
+
+      }else{ // снаружи
+
+      }
     }
 
     try {

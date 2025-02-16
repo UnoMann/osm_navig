@@ -92,7 +92,7 @@ function calculateLocation(whitelist, devices) {
   }).filter(Boolean);
 
   if (beaconData.length < 3) {
-    console.warn('Not enough beacons for triangulation');
+    console.log('Not enough beacons for triangulation');
     return null;
   }
 
@@ -184,7 +184,7 @@ export function getUserLocation() {
     console.log("(La,Lo) Позиция по BLE = ", userLocation.latitude, ", ", userLocation.longitude);
     return userLocation;
   } else {
-    console.warn('Not enough BLE beacons found to calculate location.');
+    console.log('Not enough BLE beacons found to calculate location.');
     return null;
   }
 }
