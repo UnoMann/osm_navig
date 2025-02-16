@@ -12,10 +12,10 @@ let userLocation2 = null;
 const humanSpeed = 5; // Скорость человека в км/ч
 
 const whitelist = [
-  { uuid: '02150190-7856-3412-3412-341234127856', latitude: 53.42205798418, longitude: 58.98129327977, txPower: -59  }, // 58.98129327977, 53.42205798418  "top": "mid"
-  { uuid: '02150290-7856-3412-3412-341234127856', latitude: 53.42200937603, longitude: 58.98129338581, txPower: -59  }, // 58.98129338581, 53.42200937603  "bot": "mid"
-  { uuid: '02150390-7856-3412-3412-341234127856', latitude: 53.42204882738, longitude: 58.98136283455, txPower: -59  }, // 58.98136283455, 53.42204882738  "top": "right"
-  { uuid: '02150490-7856-3412-3412-341234127856', latitude: 53.42201872588, longitude: 58.98133879431, txPower: -59  }, // 58.98133879431, 53.42201872588  "bot": "right"
+  { uuid: '02150190-7856-3412-3412-341234127856', latitude: 53.42202994059, longitude: 58.98155943213, txPower: -59  }, // 58.98129327977, 53.42205798418  "top": "mid"
+  { uuid: '02150290-7856-3412-3412-341234127856', latitude: 53.42202994059, longitude: 58.98155943213, txPower: -59  }, // 58.98129338581, 53.42200937603  "bot": "mid"
+  { uuid: '02150390-7856-3412-3412-341234127856', latitude: 53.42202994059, longitude: 58.98155943213, txPower: -59  }, // 58.98136283455, 53.42204882738  "top": "right"
+  { uuid: '02150490-7856-3412-3412-341234127856', latitude: 53.42202994059, longitude: 58.98155943213, txPower: -59  }, // 58.98133879431, 53.42201872588  "bot": "right"
 ];
 
 // Фильтрация GeoJSON по этажу
@@ -226,23 +226,6 @@ const MapNavigator = () => {
     }
   };
 
-  const findNearestPoint = (targetPoint, geojson) => {
-    let nearest = null;
-    let minDistance = Infinity;
-    geojson.features.forEach((feature) => {
-      if (feature.properties.custom && feature.properties.custom === "footpath") {
-        const { coordinates } = feature.geometry;
-        const [longitude, latitude] = coordinates;
-        const distance = haversine(targetPoint, { latitude, longitude });
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearest = { latitude, longitude, custom: feature.properties.custom };
-        }
-      }
-    });
-    return nearest;
-  };
-
   const calculateRouteDistance = (routeCoordinates) => {
     let distance = 0;
     for (let i = 0; i < routeCoordinates.length - 1; i++) {
@@ -254,151 +237,33 @@ const MapNavigator = () => {
   };
 
   const buildRoute = async () => {
-    if (!userLocation2 || !endPoint) {
-      console.log("Начальная и/или конечная точка не установлены");
-      return;
-    }
+  if (!userLocation2 || !endPoint) {
+    console.log("Начальная и/или конечная точка не установлены");
+    return;
+  }
 
-    const buildingVertices = getBuildingVerticesFromGeoJSON(mapData);
-    const isInside = isUserInsideBuilding(userLocation, buildingVertices);
-    const isEndInside = isUserInsideBuilding(endPoint, buildingVertices);
-    // console.log(isInside ? "Пользователь внутри здания" : "Пользователь снаружи здания");
-    // console.log(isEndInside ? "Метка внутри здания" : "Метка снаружи здания");
-    if(isInside){
-      if(isEndInside){ // внутри
+  const buildingVertices = getBuildingVerticesFromGeoJSON(mapData);
+  const isInside = isUserInsideBuilding(userLocation2, buildingVertices);
+  const isEndInside = isUserInsideBuilding(endPoint, buildingVertices);
 
-      }else{//изнутри наружу
-
+  try {
+    if (isInside) {
+      if (isEndInside) {
+        await buildRouteInsideBuilding(userLocation2, endPoint);
+      } else {
+        await buildRouteInsideToOutside(userLocation2, endPoint);
       }
-    }else{
-      if(isEndInside){ // снаружи внутрь
-
-      }else{ // снаружи
-
+    } else {
+      if (isEndInside) {
+        await buildRouteOutsideToInside(userLocation2, endPoint);
+      } else {
+        await buildRouteOutside(userLocation2, endPoint);
       }
     }
-
-    try {
-      const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${userLocation2.longitude},${userLocation2.latitude};${endPoint.longitude},${endPoint.latitude}?geometries=geojson`);
-
-      if (response.data.routes.length > 0) {
-        const coordinates = response.data.routes[0].geometry.coordinates.map(([longitude, latitude]) => ({
-          latitude,
-          longitude,
-        }));
-
-        const routeEndPoint = coordinates[coordinates.length - 1];
-        const nearestPoint = findNearestPoint(routeEndPoint, mapData);
-
-        if (nearestPoint) {
-          const distanceToRouteEnd = haversine(endPoint, routeEndPoint);
-          const distanceToNearestWhere = haversine(endPoint, nearestPoint);
-
-          if (distanceToRouteEnd <= distanceToNearestWhere) {
-            setRoute(coordinates);
-            const distance = calculateRouteDistance(coordinates);
-            setRouteDistance(distance);
-          } else {
-            const lines = mapData.features.filter(feature => feature.geometry.type === "LineString" && feature.properties.custom === "footpath");
-            const path = [];
-            const endPointCoordinates = { latitude: endPoint.latitude, longitude: endPoint.longitude };
-
-            const findNearestLinePoint = (point, lineCoordinates) => {
-              let nearestPoint = null;
-              let nearestDistance = Infinity;
-
-              for (let i = 0; i < lineCoordinates.length - 1; i++) {
-                const start = lineCoordinates[i];
-                const end = lineCoordinates[i + 1];
-                const projectedPoint = getNearestPointOnSegment(point, start, end);
-                const distance = haversine(point, projectedPoint);
-
-                if (distance < nearestDistance) {
-                  nearestDistance = distance;
-                  nearestPoint = projectedPoint;
-                }
-              }
-
-              return nearestPoint;
-            };
-
-            const getNearestPointOnSegment = (point, start, end) => {
-              const A = { latitude: start.latitude, longitude: start.longitude };
-              const B = { latitude: end.latitude, longitude: end.longitude };
-              const P = { latitude: point.latitude, longitude: point.longitude };
-
-              const AB = { latitude: B.latitude - A.latitude, longitude: B.longitude - A.longitude };
-              const AP = { latitude: P.latitude - A.latitude, longitude: P.longitude - A.longitude };
-
-              const ab2 = AB.latitude * AB.latitude + AB.longitude * AB.longitude;
-              const ap_ab = AP.latitude * AB.latitude + AP.longitude * AB.longitude;
-
-              const t = Math.max(0, Math.min(1, ap_ab / ab2));
-
-              return {
-                latitude: A.latitude + t * AB.latitude,
-                longitude: A.longitude + t * AB.longitude,
-              };
-            };
-
-            let closestLinePoint = null;
-            let minDistance = Infinity;
-
-            lines.forEach(line => {
-              const lineCoordinates = line.geometry.coordinates.map(([longitude, latitude]) => ({
-                latitude,
-                longitude,
-              }));
-
-              const nearestPoint = findNearestLinePoint(endPointCoordinates, lineCoordinates);
-              const distance = haversine(endPointCoordinates, nearestPoint);
-
-              if (distance < minDistance) {
-                minDistance = distance;
-                closestLinePoint = nearestPoint;
-              }
-            });
-
-            if (closestLinePoint) {
-              const linePath = [];
-
-              lines.forEach(line => {
-                const lineCoordinates = line.geometry.coordinates.map(([longitude, latitude]) => ({
-                  latitude,
-                  longitude,
-                }));
-
-                for (let i = 0; i < lineCoordinates.length - 1; i++) {
-                  const start = lineCoordinates[i];
-                  const end = lineCoordinates[i + 1];
-
-                  if (getNearestPointOnSegment(closestLinePoint, start, end).latitude === closestLinePoint.latitude &&
-                    getNearestPointOnSegment(closestLinePoint, start, end).longitude === closestLinePoint.longitude) {
-                    linePath.push(...lineCoordinates.slice(0, i + 1));
-                    break;
-                  }
-                }
-              });
-
-              linePath.push(closestLinePoint);
-
-              const response2 = await axios.get(`https://router.project-osrm.org/route/v1/driving/${userLocation2.longitude},${userLocation2.latitude};${linePath[0].longitude},${linePath[0].latitude}?geometries=geojson`);
-              const coordinates2 = response2.data.routes[0].geometry.coordinates.map(([longitude, latitude]) => ({
-                latitude,
-                longitude,
-              }));
-
-              setRoute([...coordinates2, ...linePath]);
-              const distance = calculateRouteDistance([...coordinates2, ...linePath]);
-              setRouteDistance(distance);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Ошибка при построении маршрута:", error);
-    }
-  };
+  } catch (error) {
+    console.error("Ошибка при построении маршрута:", error);
+  }
+};
 
   const clearRoute = () => {
     setEndPoint(null);
@@ -409,7 +274,359 @@ const MapNavigator = () => {
   const handleRegionChange = (region) => {
     const zoom = Math.log2(360 / region.longitudeDelta);
     setZoomLevel(Math.round(zoom));
+  };const buildRouteInsideBuilding = async (start, end) => {
+    try {
+      const lines = mapData.features.filter(
+        (feature) =>
+          feature.geometry.type === "LineString" &&
+          feature.properties.custom === "footpath"
+      );
+  
+      const findNearestPointOnLine = (point, lineCoordinates) => {
+        let nearestPoint = null;
+        let nearestDistance = Infinity;
+  
+        for (let i = 0; i < lineCoordinates.length - 1; i++) {
+          const startCoord = lineCoordinates[i];
+          const endCoord = lineCoordinates[i + 1];
+          const projectedPoint = getNearestPointOnSegment(point, startCoord, endCoord);
+          const distance = haversine(point, projectedPoint);
+  
+          if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestPoint = { ...projectedPoint, index: i };
+          }
+        }
+  
+        return nearestPoint;
+      };
+  
+      // Находим ближайшие точки на линии для начальной и конечной точек
+      let startLine = null;
+      let endLine = null;
+      let startNearestPoint = null;
+      let endNearestPoint = null;
+  
+      for (const line of lines) {
+        const lineCoordinates = line.geometry.coordinates.map(([longitude, latitude]) => ({
+          latitude,
+          longitude,
+        }));
+  
+        const startPoint = findNearestPointOnLine(start, lineCoordinates);
+        const endPoint = findNearestPointOnLine(end, lineCoordinates);
+  
+        if (startPoint && endPoint) {
+          startLine = lineCoordinates;
+          endLine = lineCoordinates;
+          startNearestPoint = startPoint;
+          endNearestPoint = endPoint;
+          break;
+        }
+      }
+  
+      if (!startLine || !endLine || !startNearestPoint || !endNearestPoint) {
+        console.log("Не удалось найти ближайшие точки на линии");
+        return;
+      }
+  
+      // Определяем порядок точек на линии
+      const startIndex = Math.min(startNearestPoint.index, endNearestPoint.index);
+      const endIndex = Math.max(startNearestPoint.index, endNearestPoint.index);
+  
+      // Проверяем, какая точка ближе к пользователю
+      const isStartCloserToUser =
+        haversine(start, startLine[startIndex]) < haversine(start, startLine[endIndex]);
+  
+      // Строим маршрут в зависимости от близости точек
+      const internalRoute = isStartCloserToUser
+        ? [startNearestPoint, ...startLine.slice(startIndex, endIndex + 1), endNearestPoint]
+        : [endNearestPoint, ...startLine.slice(startIndex, endIndex + 1), startNearestPoint
+          
+        ];
+  
+      // Устанавливаем маршрут
+      setRoute(internalRoute);
+  
+      // Рассчитываем дистанцию
+      const distance = calculateRouteDistance(internalRoute);
+      setRouteDistance(distance);
+    } catch (error) {
+      console.error("Ошибка при построении маршрута внутри здания:", error);
+    }
   };
+
+  const buildRouteInsideToOutside = async (start, end) => {
+    try {
+      // Шаг 1: Находим ближайший выход из здания
+      const exits = mapData.features.filter(
+        (feature) => feature.properties.entrance === "main"
+      );
+  
+      if (exits.length === 0) {
+        console.log("Не найдено выходов из здания");
+        return;
+      }
+  
+      const nearestExit = {
+        latitude: exits[0].geometry.coordinates[1],
+        longitude: exits[0].geometry.coordinates[0],
+      };
+  
+      // Шаг 2: Строим маршрут внутри здания до выхода
+      const internalRoute = await buildInternalRoute(start, nearestExit);
+  
+      if (!internalRoute) {
+        console.log("Не удалось построить внутренний маршрут");
+        return;
+      }
+  
+      // Шаг 3: Строим внешний маршрут от выхода до конечной точки
+      const response = await axios.get(
+        `https://router.project-osrm.org/route/v1/driving/${nearestExit.longitude},${nearestExit.latitude};${end.longitude},${end.latitude}?geometries=geojson`
+      );
+  
+      if (response.data.routes.length === 0) {
+        console.log("OSRM не вернул маршрут");
+        return;
+      }
+  
+      const externalRoute = response.data.routes[0].geometry.coordinates.map(
+        ([longitude, latitude]) => ({ latitude, longitude })
+      );
+  
+      // Объединяем внутренний и внешний маршруты
+      const fullRoute = [...internalRoute, ...externalRoute];
+      setRoute(fullRoute);
+  
+      // Рассчитываем дистанцию
+      const distance = calculateRouteDistance(fullRoute);
+      setRouteDistance(distance);
+    } catch (error) {
+      console.error("Ошибка при построении маршрута изнутри наружу:", error);
+    }
+  };
+  const buildRouteOutsideToInside = async (start, end) => {
+    try {
+      // Шаг 1: Находим ближайший вход в здание
+      const entrances = mapData.features.filter(
+        (feature) => feature.properties.entrance === "main"
+      );
+  
+      if (entrances.length === 0) {
+        console.log("Не найдено входов в здание");
+        return;
+      }
+  
+      const nearestEntrance = {
+        latitude: entrances[0].geometry.coordinates[1],
+        longitude: entrances[0].geometry.coordinates[0],
+      };
+  
+      // Шаг 2: Строим внешний маршрут до входа
+      const response = await axios.get(
+        `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${nearestEntrance.longitude},${nearestEntrance.latitude}?geometries=geojson`
+      );
+  
+      if (response.data.routes.length === 0) {
+        console.log("OSRM не вернул маршрут");
+        return;
+      }
+  
+      const externalRoute = response.data.routes[0].geometry.coordinates.map(
+        ([longitude, latitude]) => ({ latitude, longitude })
+      );
+  
+      // Шаг 3: Находим ближайшую линию с тегом custom=footpath
+      const lines = mapData.features.filter(
+        (feature) =>
+          feature.geometry.type === "LineString" &&
+          feature.properties.custom === "footpath"
+      );
+  
+      const findNearestLineToPoint = (point, lines) => {
+        let nearestLine = null;
+        let nearestPointOnLine = null;
+        let minDistance = Infinity;
+  
+        lines.forEach((line) => {
+          const lineCoordinates = line.geometry.coordinates.map(([longitude, latitude]) => ({
+            latitude,
+            longitude,
+          }));
+  
+          for (let i = 0; i < lineCoordinates.length - 1; i++) {
+            const startCoord = lineCoordinates[i];
+            const endCoord = lineCoordinates[i + 1];
+            const projectedPoint = getNearestPointOnSegment(point, startCoord, endCoord);
+            const distance = haversine(point, projectedPoint);
+  
+            if (distance < minDistance) {
+              minDistance = distance;
+              nearestLine = lineCoordinates;
+              nearestPointOnLine = projectedPoint;
+            }
+          }
+        });
+  
+        return { nearestLine, nearestPointOnLine };
+      };
+  
+      const { nearestLine, nearestPointOnLine } = findNearestLineToPoint(end, lines);
+  
+      if (!nearestLine || !nearestPointOnLine) {
+        console.log("Не удалось найти ближайшую линию или точку на линии");
+        return;
+      }
+  
+      // Шаг 4: Строим маршрут по линии от входа до ближайшей точки
+      const internalRoute = [];
+      let foundNearestPoint = false;
+  
+      for (let i = 0; i < nearestLine.length - 1; i++) {
+        const startCoord = nearestLine[i];
+        const endCoord = nearestLine[i + 1];
+  
+        if (
+          getNearestPointOnSegment(nearestPointOnLine, startCoord, endCoord).latitude === nearestPointOnLine.latitude &&
+          getNearestPointOnSegment(nearestPointOnLine, startCoord, endCoord).longitude === nearestPointOnLine.longitude
+        ) {
+          internalRoute.push(...nearestLine.slice(0, i + 1));
+          foundNearestPoint = true;
+          break;
+        }
+      }
+  
+      if (!foundNearestPoint) {
+        console.log("Не удалось построить маршрут по линии");
+        return;
+      }
+  
+      internalRoute.push(nearestPointOnLine);
+  
+      // Шаг 5: Объединяем внешний и внутренний маршруты
+      const fullRoute = [...externalRoute, ...internalRoute];
+      setRoute(fullRoute);
+  
+      // Рассчитываем дистанцию
+      const distance = calculateRouteDistance(fullRoute);
+      setRouteDistance(distance);
+    } catch (error) {
+      console.error("Ошибка при построении маршрута:", error);
+    }
+  };
+
+  const buildRouteOutside = async (start, end) => {
+    const response = await axios.get(
+      `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?geometries=geojson`
+    );
+  
+    if (response.data.routes.length > 0) {
+      const coordinates = response.data.routes[0].geometry.coordinates.map(
+        ([longitude, latitude]) => ({ latitude, longitude })
+      );
+  
+      setRoute(coordinates);
+      const distance = calculateRouteDistance(coordinates);
+      setRouteDistance(distance);
+    }
+  };
+
+  const getNearestPointOnSegment = (point, start, end) => {
+    const A = { latitude: start.latitude, longitude: start.longitude };
+    const B = { latitude: end.latitude, longitude: end.longitude };
+    const P = { latitude: point.latitude, longitude: point.longitude };
+  
+    const AB = {
+      latitude: B.latitude - A.latitude,
+      longitude: B.longitude - A.longitude,
+    };
+    const AP = {
+      latitude: P.latitude - A.latitude,
+      longitude: P.longitude - A.longitude,
+    };
+  
+    const ab2 = AB.latitude * AB.latitude + AB.longitude * AB.longitude;
+    const ap_ab = AP.latitude * AB.latitude + AP.longitude * AB.longitude;
+  
+    const t = Math.max(0, Math.min(1, ap_ab / ab2));
+  
+    return {
+      latitude: A.latitude + t * AB.latitude,
+      longitude: A.longitude + t * AB.longitude,
+    };
+  };
+
+
+  
+  // Вспомогательная функция для построения внутреннего маршрута
+  const buildInternalRoute = async (start, end) => {
+    const lines = mapData.features.filter(
+      (feature) =>
+        feature.geometry.type === "LineString" &&
+        feature.properties.custom === "footpath"
+    );
+  
+    const findNearestPointOnLine = (point, lineCoordinates) => {
+      let nearestPoint = null;
+      let nearestDistance = Infinity;
+  
+      for (let i = 0; i < lineCoordinates.length - 1; i++) {
+        const startCoord = lineCoordinates[i];
+        const endCoord = lineCoordinates[i + 1];
+        const projectedPoint = getNearestPointOnSegment(point, startCoord, endCoord);
+        const distance = haversine(point, projectedPoint);
+  
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestPoint = { ...projectedPoint, index: i };
+        }
+      }
+  
+      return nearestPoint;
+    };
+  
+    // Находим ближайшие точки на линии для начальной и конечной точек
+    let startLine = null;
+    let endLine = null;
+    let startNearestPoint = null;
+    let endNearestPoint = null;
+  
+    for (const line of lines) {
+      const lineCoordinates = line.geometry.coordinates.map(([longitude, latitude]) => ({
+        latitude,
+        longitude,
+      }));
+  
+      const startPoint = findNearestPointOnLine(start, lineCoordinates);
+      const endPoint = findNearestPointOnLine(end, lineCoordinates);
+  
+      if (startPoint && endPoint) {
+        startLine = lineCoordinates;
+        endLine = lineCoordinates;
+        startNearestPoint = startPoint;
+        endNearestPoint = endPoint;
+        break;
+      }
+    }
+  
+    if (!startLine || !endLine || !startNearestPoint || !endNearestPoint) {
+      return null;
+    }
+  
+    // Определяем порядок точек на линии
+    const startIndex = Math.min(startNearestPoint.index, endNearestPoint.index);
+    const endIndex = Math.max(startNearestPoint.index, endNearestPoint.index);
+  
+    // Проверяем, какая точка ближе к пользователю
+    const isStartCloserToUser = haversine(start, startLine[startIndex]) < haversine(start, startLine[endIndex]);
+  
+    // Строим маршрут в зависимости от близости точек
+    return isStartCloserToUser
+      ? [start, ...startLine.slice(startIndex, endIndex + 1), end]
+      : [start, ...startLine.slice(endIndex, startIndex - 1 || 0).reverse(), end];
+  };
+
 
   return (
     <View style={styles.container}>
