@@ -12,10 +12,10 @@ let userLocation2 = null;
 const humanSpeed = 5; // Скорость человека в км/ч
 
 const whitelist = [
-  { uuid: '02150190-7856-3412-3412-341234127856', latitude: 53.42202994059, longitude: 58.98155943213, txPower: -59  }, // 58.98129327977, 53.42205798418  "top": "mid"
-  { uuid: '02150290-7856-3412-3412-341234127856', latitude: 53.42202994059, longitude: 58.98155943213, txPower: -59  }, // 58.98129338581, 53.42200937603  "bot": "mid"
-  { uuid: '02150390-7856-3412-3412-341234127856', latitude: 53.42202994059, longitude: 58.98155943213, txPower: -59  }, // 58.98136283455, 53.42204882738  "top": "right"
-  { uuid: '02150490-7856-3412-3412-341234127856', latitude: 53.42202994059, longitude: 58.98155943213, txPower: -59  }, // 58.98133879431, 53.42201872588  "bot": "right"
+  { uuid: '02150190-7856-3412-3412-341234127856', latitude: 53.42205798418, longitude: 58.98129327977, txPower: -59  }, // 58.98129327977, 53.42205798418  "top": "mid" 1
+  { uuid: '02150290-7856-3412-3412-341234127856', latitude: 53.42200937603, longitude: 58.98129338581, txPower: -59  }, // 58.98129338581, 53.42200937603  "bot": "mid" 2
+  { uuid: '02150390-7856-3412-3412-341234127856', latitude: 53.42204882738, longitude: 58.98136283455, txPower: -59  }, // 58.98136283455, 53.42204882738  "top": "right" 3
+  { uuid: '02150490-7856-3412-3412-341234127856', latitude: 53.42201872588, longitude: 58.98133879431, txPower: -59  }, // 58.98133879431, 53.42201872588  "bot": "right" ЭКРАН/4
 ];
 
 // Фильтрация GeoJSON по этажу
@@ -341,7 +341,7 @@ const MapNavigator = () => {
       // Строим маршрут в зависимости от близости точек
       const internalRoute = isStartCloserToUser
         ? [startNearestPoint, ...startLine.slice(startIndex, endIndex + 1), endNearestPoint]
-        : [endNearestPoint, ...startLine.slice(startIndex, endIndex + 1), startNearestPoint
+        : [endNearestPoint, ...startLine.slice(startIndex + 1, endIndex + 1), startNearestPoint
           
         ];
   
