@@ -10,6 +10,12 @@ let isScanning = false; // Флаг для контроля сканирован
 let readyForReturn = false;
 let whitelist = []; // Хранилище whitelist с координатами маяков
 
+function getStronger() {
+  let maxRssi = Math.max(...devices.map(item => item.rssi))
+  const itemWithMaxFloor = devices.find(item => item.rssi === maxRssi);
+  console.log(itemWithMaxFloor.floor);
+}
+
 // Функция для запроса разрешений
 async function requestPermissions() {
   if (Platform.OS === 'android') {
@@ -38,19 +44,39 @@ async function requestPermissions() {
   }
 }
 
-// Функция для декодирования UUID из manufacturerData
-function parseUUID(manufacturerData) {
-  if (!manufacturerData) return null;
+function parseMacAddress(device) {
+  let mac = null;
 
-  const bytes = base64.toByteArray(manufacturerData);
+  // Попытка извлечь MAC-адрес из manufacturerData
+  if (device.manufacturerData && device.manufacturerData.data) {
+    const data = Array.from(device.manufacturerData.data);
+    console.log('Decoded manufacturerData:', data);
 
-  if (bytes.length < 18) return null;
+    // Проверяем последние 6 байтов
+    const macBytes = data.slice(-6);
+    if (macBytes.length === 6) {
+      mac = macBytes.map(byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(':');
+      console.log('Parsed MAC from manufacturerData:', mac);
+    }
+  }
 
-  const uuid = Array.from(bytes.slice(2, 18))
-    .map((b, i) => b.toString(16).padStart(2, '0'))
-    .join('');
+  // Если MAC-адрес не найден, используем device.id
+  if (!mac && device.id) {
+    // mac = device.id.toUpperCase(); // Приводим к верхнему регистру
+    console.log('Using device.id as MAC:', mac);
+  }
 
-  return `${uuid.slice(0, 8)}-${uuid.slice(8, 12)}-${uuid.slice(12, 16)}-${uuid.slice(16, 20)}-${uuid.slice(20)}`;
+  return mac;
+}
+
+// Функция для декодирования Base64 в массив байтов
+function decodeBase64ToBytes(base64String) {
+  const binaryString = atob(base64String); // Декодируем Base64 в строку
+  const bytes = [];
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes.push(binaryString.charCodeAt(i)); // Преобразуем каждый символ в байт
+  }
+  return bytes;
 }
 
 // Улучшенный расчет расстояния с учетом шума и корректировок
@@ -76,7 +102,7 @@ function calculateLocation(whitelist, devices) {
   const DEFAULT_TXPOWER = -59; // Стандартная мощность передатчика
 
   const beaconData = devices.map(device => {
-    const beacon = whitelist.find(w => w.uuid === device.uuid);
+    const beacon = whitelist.find(w => w.mac === device.mac);
     if (!beacon || device.rssi >= 0) return null;
 
     const txPower = beacon.txPower ?? DEFAULT_TXPOWER;
@@ -132,15 +158,15 @@ export async function startScanning(inputWhitelist) {
     }
 
     if (device && device.manufacturerData) {
-      const uuid = parseUUID(device.manufacturerData);
+      const mac = device.id;
 
-      if (uuid && whitelist.some(w => w.uuid === uuid)) {
-        const existingIndex = devices.findIndex(d => d.uuid === uuid);
+      if (mac && whitelist.some(w => w.mac === mac)) {
+        const existingIndex = devices.findIndex(d => d.mac === mac);
 
         if (existingIndex !== -1) {
-          devices[existingIndex] = { uuid, rssi: device.rssi, lastSeen: Date.now() };
+          devices[existingIndex] = { mac, rssi: device.rssi, lastSeen: Date.now() };
         } else {
-          devices.push({ uuid, rssi: device.rssi, lastSeen: Date.now() });
+          devices.push({ mac, rssi: device.rssi, lastSeen: Date.now() });
         }
 
         if (devices.length >= 3) {
@@ -157,7 +183,7 @@ export async function startScanning(inputWhitelist) {
 }
 
 // Удаление старых устройств
-function removeOldDevices(timeoutMs = 5000) {
+function removeOldDevices(timeoutMs = 6000) {
   const now = Date.now();
   devices.forEach((device, index) => {
     if (now - device.lastSeen > timeoutMs) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, use } from 'react';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { View, StyleSheet, Button, Text } from 'react-native';
 import * as Location from 'expo-location';
@@ -12,12 +12,56 @@ let userLocation2 = null;
 const humanSpeed = 5; // Скорость человека в км/ч
 
 const whitelist = [
-  { uuid: '02150190-7856-3412-3412-341234127856', latitude: 53.42205798418, longitude: 58.98129327977, txPower: -59  }, // 58.98129327977, 53.42205798418  "top": "mid" 1
-  { uuid: '02150290-7856-3412-3412-341234127856', latitude: 53.42200937603, longitude: 58.98129338581, txPower: -59  }, // 58.98129338581, 53.42200937603  "bot": "mid" 2
-  { uuid: '02150390-7856-3412-3412-341234127856', latitude: 53.42204882738, longitude: 58.98136283455, txPower: -59  }, // 58.98136283455, 53.42204882738  "top": "right" 3
-  { uuid: '02150490-7856-3412-3412-341234127856', latitude: 53.42201872588, longitude: 58.98133879431, txPower: -59  }, // 58.98133879431, 53.42201872588  "bot": "right" ЭКРАН/4
+  { mac: "F8:1B:84:5F:93:D6", latitude: 60.6393003107993, longitude: 56.8173541446036, txPower: -12, floor: 1 },
+  { mac: "CD:3F:8F:1F:06:34", latitude: 60.6394054093218, longitude: 56.8173440446855, txPower: -12, floor: 1 },
+  { mac: "DD:8E:91:65:60:47", latitude: 60.6394197459161, longitude: 56.8173846548389, txPower: -12, floor: 1 },
+  { mac: "E5:89:28:76:D0:94", latitude: 60.63945906848, longitude: 56.8173384901052, txPower: -12, floor: 1 },
+  { mac: "D1:9C:66:4E:A6:50", latitude: 60.6395513430606, longitude: 56.8173341916922, txPower: -12, floor: 1 },
+  { mac: "F3:ED:44:88:67:3F", latitude: 60.6396139257895, longitude: 56.8173638888858, txPower: -12, floor: 1 },
+  { mac: "EB:88:43:C7:47:86", latitude: 60.6394901596189, longitude: 56.8174212672104, txPower: -12, floor: 1 },
+  { mac: "D9:86:CF:A0:F9:19", latitude: 60.6395784900809, longitude: 56.8174111126818, txPower: -12, floor: 1 },
+  { mac: "E6:5B:17:79:73:0D", latitude: 60.63967527064, longitude: 56.8173999353838, txPower: -12, floor: 1 },
+  { mac: "E2:A1:40:57:40:17", latitude: 60.6397277054952, longitude: 56.8173509965051, txPower: -12, floor: 1 },
+  { mac: "E0:90:C0:71:71:45", latitude: 60.6396469765704, longitude: 56.8173164885628, txPower: -12, floor: 1 },
+  { mac: "E8:D7:7F:85:3A:CE", latitude: 60.639426463297, longitude: 56.8174097473751, txPower: -12, floor: 1 },
+  { mac: "C2:6E:12:64:54:8B", latitude: 60.6394096064589, longitude: 56.8173613535366, txPower: -12, floor: 1 },
+  { mac: "F6:5E:21:B0:67:34", latitude: 60.6393117770631, longitude: 56.8173961047646, txPower: -12, floor: 1.5 },
+  { mac: "DD:90:CA:49:9D:B0", latitude: 60.6397335863644, longitude: 56.8173617755579, txPower: -12, floor: 1 },
+  { mac: "F1:34:89:DB:A7:82", latitude: 60.6398369781833, longitude: 56.8173278601273, txPower: -12, floor: 1.5 },
+  { mac: "E4:C7:1E:BC:81:BB", latitude: 60.6394261512748, longitude: 56.8174094704649, txPower: -12, floor: 2 },
+  { mac: "С8:12:93:2A:BC:9D", latitude: 60.6394093630291, longitude: 56.817361176472, txPower: -12, floor: 2 },
+  { mac: "E7:CC:1F:44:43:C1", latitude: 60.6394199558439, longitude: 56.8173841742843, txPower: -12, floor: 2 },
+  { mac: "FE:0B:A3:DF:51:84", latitude: 60.6394481701012, longitude: 56.8174336535161, txPower: -12, floor: 2 },
+  { mac: "EF:45:0C:66:A8:0B", latitude: 60.6397149315255, longitude: 56.8174036175095, txPower: -12, floor: 2 },
+  { mac: "DE:CC:94:7B:FE:24", latitude: 60.6394119592347, longitude: 56.8173332380245, txPower: -12, floor: 2 },
+  { mac: "E1:AE:CE:7B:2F:B8", latitude: 60.6395773158853, longitude: 56.817405021566, txPower: -12, floor: 2 },
+  { mac: "C3:C4:4A:6C:10:E7", latitude: 60.6394970489153, longitude: 56.817376500832, txPower: -12, floor: 2 },
+  { mac: "DF:D9:9B:37:FC:52", latitude: 60.6395523555097, longitude: 56.8173333321298, txPower: -12, floor: 2 },
+  { mac: "EF:43:7F:F4:32:DF", latitude: 60.6396559263216, longitude: 56.8173589430911, txPower: -12, floor: 2 },
+  { mac: "C6:CA:FD:32:9F:3C", latitude: 60.639736887485, longitude: 56.8173497659074, txPower: -12, floor: 2 },
+  { mac: "F2:A5:4E:56:9A:C6", latitude: 60.639677861749, longitude: 56.8173035143455, txPower: -12, floor: 2 },
+  { mac: "CF:08:29:A1:15:15", latitude: 60.6397414949666, longitude: 56.8173603155616, txPower: -12, floor: 2 },
+  { mac: "FD:A0:FE:9F:EF:F3", latitude: 60.6392863141239, longitude: 56.8174004846505, txPower: -12, floor: 2.5 },
+  { mac: "CD:DC:5E:45:1A:A0", latitude: 60.6398370751369, longitude: 56.8173282233033, txPower: -12, floor: 2.5 },
+  { mac: "ED:3D:06:A3:72:38", latitude: 60.639503856753, longitude: 56.817346835359, txPower: -12, floor: 3 },
+  { mac: "ED:6D:53:D1:C7:A3", latitude: 60.6395232246863, longitude: 56.8174026842016, txPower: -12, floor: 3 },
+  { mac: "F4:BA:53:D6:3C:1B", latitude: 60.6396275868384, longitude: 56.8173909605497, txPower: -12, floor: 3 },
+  { mac: "E4:AC:E8:DA:2D:96", latitude: 60.639607892787, longitude: 56.8173355325953, txPower: -12, floor: 3 },
+  { mac: "C7:2A:02:A9:7D:0A", latitude: 60.6395510135791, longitude: 56.8173313357852, txPower: -12, floor: 3 },
+  { mac: "F0:46:F3:84:07:7B", latitude: 60.6395787300311, longitude: 56.8174068221811, txPower: -12, floor: 3 },
+  { mac: "FC:24:E1:4A:12:A5", latitude: 60.6394211059657, longitude: 56.8173844588397, txPower: -12, floor: 3 },
+  { mac: "F8:F4:4D:AA:5C:86", latitude: 60.6394280678333, longitude: 56.8174089975643, txPower: -12, floor: 3 },
+  { mac: "DD:FE:A5:2A:74:3A", latitude: 60.6394114724523, longitude: 56.8173614463291, txPower: -12, floor: 3 },
+  { mac: "CE:2F:85:DF:09:7B", latitude: 60.6394075256815, longitude: 56.8173065955102, txPower: -12, floor: 3 },
+  { mac: "E2:3B:B5:9D:12:E5", latitude: 60.6394479649511, longitude: 56.8174616700533, txPower: -12, floor: 3 },
+  { mac: "CD:88:1D:32:71:E9", latitude: 60.6396560944651, longitude: 56.8173586506289, txPower: -12, floor: 3 },
+  { mac: "E0:83:0E:14:30:A1", latitude: 60.6397376621334, longitude: 56.8173503061506, txPower: -12, floor: 3 },
+  { mac: "FD:FE:BB:82:D7:FB", latitude: 60.6397256395492, longitude: 56.8174062180844, txPower: -12, floor: 3 },
+  { mac: "E7:67:79:29:34:D3", latitude: 60.6396630297007, longitude: 56.8173045805598, txPower: -12, floor: 3 },
+  { mac: "F8:CA:9D:EF:38:C8", latitude: 60.6397894391545, longitude: 56.8173718164588, txPower: -12, floor: 3 },
+  { mac: "E3:12:76:E7:C4:4F", latitude: 60.6397726968228, longitude: 56.8173256421651, txPower: -12, floor: 3 }
 ];
-
+console.log(Math.max(...whitelist.map(item => item.floor)));
 // Фильтрация GeoJSON по этажу
 const filterGeojsonByFloor = (geojson, selectedFloor) => {
   return {
@@ -41,6 +85,10 @@ const MapNavigator = () => {
   const [routeDistance, setRouteDistance] = useState(null);
   const [locationSubscription, setLocationSubscription] = useState(null);
   const bleRef = useRef(ble);
+  const [endFloor,setEndFloor] = useState(1);
+  const [userFloor,setUserFloor] = useState(1);
+  const [elevatorBool, setElevatorBool] = useState(false)
+  const [pandusBool, setPandusBool] = useState(true)
 
   useEffect(() => {
     bleRef.current = ble;
@@ -223,6 +271,7 @@ const MapNavigator = () => {
   const handleSetEnd = async (event) => {
     if (!isBuildingRoute) {
       setEndPoint(event.nativeEvent.coordinate);
+      setEndFloor(selectedFloor);
     }
   };
 
@@ -275,92 +324,174 @@ const MapNavigator = () => {
     const zoom = Math.log2(360 / region.longitudeDelta);
     setZoomLevel(Math.round(zoom));
   };
-  const buildRouteInsideBuilding = async (start, end) => {
-    try {
-      const lines = mapData.features.filter(
-        (feature) =>
-          feature.geometry.type === "LineString" &&
-          feature.properties.custom === "footpath"
-      );
-  
-      const findNearestPointOnLine = (point, lineCoordinates) => {
-        let nearestPoint = null;
-        let nearestDistance = Infinity;
-  
-        for (let i = 0; i < lineCoordinates.length - 1; i++) {
-          const startCoord = lineCoordinates[i];
-          const endCoord = lineCoordinates[i + 1];
-          const projectedPoint = getNearestPointOnSegment(point, startCoord, endCoord);
-          const distance = haversine(point, projectedPoint);
-  
-          if (distance < nearestDistance) {
-            nearestDistance = distance;
-            nearestPoint = { ...projectedPoint, index: i };
-          }
-        }
-  
-        return nearestPoint;
-      };
-  
-      // Находим ближайшие точки на линии для начальной и конечной точек
-      let startLine = null;
-      let endLine = null;
-      let startNearestPoint = null;
-      let endNearestPoint = null;
-  
-      for (const line of lines) {
-        const lineCoordinates = line.geometry.coordinates.map(([longitude, latitude]) => ({
-          latitude,
-          longitude,
-        }));
-  
-        const startPoint = findNearestPointOnLine(start, lineCoordinates);
-        const endPoint = findNearestPointOnLine(end, lineCoordinates);
-  
-        if (startPoint && endPoint) {
-          startLine = lineCoordinates;
-          endLine = lineCoordinates;
-          startNearestPoint = startPoint;
-          endNearestPoint = endPoint;
-          break;
+// Вспомогательная функция для построения маршрута на одном этаже
+const buildSingleFloorRoute = async (start, end, floor) => {
+  try {
+    const lines = mapData.features.filter(
+      (feature) =>
+        feature.geometry.type === "LineString" &&
+        feature.properties.custom === "footpath" &&
+        Number(feature.properties.level) === floor
+    );
+
+    const findNearestPointOnLine = (point, lineCoordinates) => {
+      let nearestPoint = null;
+      let nearestDistance = Infinity;
+
+      for (let i = 0; i < lineCoordinates.length - 1; i++) {
+        const startCoord = lineCoordinates[i];
+        const endCoord = lineCoordinates[i + 1];
+        const projectedPoint = getNearestPointOnSegment(point, startCoord, endCoord);
+        const distance = haversine(point, projectedPoint);
+
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestPoint = { ...projectedPoint, index: i };
         }
       }
-  
-      if (!startLine || !endLine || !startNearestPoint || !endNearestPoint) {
-        console.log("Не удалось найти ближайшие точки на линии");
+
+      return nearestPoint;
+    };
+
+    let startLine = null;
+    let endLine = null;
+    let startNearestPoint = null;
+    let endNearestPoint = null;
+
+    for (const line of lines) {
+      const lineCoordinates = line.geometry.coordinates.map(([longitude, latitude]) => ({
+        latitude,
+        longitude,
+      }));
+
+      const startPoint = findNearestPointOnLine(start, lineCoordinates);
+      const endPoint = findNearestPointOnLine(end, lineCoordinates);
+
+      if (startPoint && endPoint) {
+        startLine = lineCoordinates;
+        endLine = lineCoordinates;
+        startNearestPoint = startPoint;
+        endNearestPoint = endPoint;
+        break;
+      }
+    }
+
+    if (!startLine || !endLine || !startNearestPoint || !endNearestPoint) {
+      console.log("Не удалось найти ближайшие точки на линии");
+      return [];
+    }
+
+    const startIndex = Math.min(startNearestPoint.index, endNearestPoint.index);
+    const endIndex = Math.max(startNearestPoint.index, endNearestPoint.index);
+
+    const isStartCloserToUser =
+      haversine(start, startLine[startIndex]) < haversine(start, startLine[endIndex]);
+
+    const internalRoute = isStartCloserToUser
+      ? [startNearestPoint, ...startLine.slice(startIndex, endIndex + 1), endNearestPoint]
+      : [endNearestPoint, ...startLine.slice(startIndex + 1, endIndex + 1), startNearestPoint];
+
+    return internalRoute;
+  } catch (error) {
+    console.error("Ошибка при построении маршрута на этаже:", error);
+    return [];
+  }
+};
+
+// Основная функция для построения маршрута внутри здания
+const buildRouteInsideBuilding = async (start, end) => {
+  try {
+    // Если этаж пользователя и конечной точки разные
+    if (userFloor !== endFloor) {
+      // Ищем лифты на этаже пользователя
+      let elevatorFeatures = null;
+      if(elevatorBool){
+        elevatorFeatures = mapData.features.filter(
+          (feature) =>
+            feature.geometry.type === "Point" &&
+            feature.properties.custom === "elevator" &&
+            Number(feature.properties.level) === userFloor
+        );
+      }else{
+        elevatorFeatures = mapData.features.filter(
+          (feature) =>
+            feature.geometry.type === "Point" &&
+            feature.properties.custom === "stairs" &&
+            Number(feature.properties.level) === userFloor
+        );
+      }
+
+
+      if (elevatorFeatures.length === 0) {
+        console.error("Не найден лифт на этаже пользователя");
         return;
       }
-  
-      // Определяем порядок точек на линии
-      const startIndex = Math.min(startNearestPoint.index, endNearestPoint.index);
-      const endIndex = Math.max(startNearestPoint.index, endNearestPoint.index);
-  
-      // Проверяем, какая точка ближе к пользователю
-      const isStartCloserToUser =
-        haversine(start, startLine[startIndex]) < haversine(start, startLine[endIndex]);
-  
-      // Строим маршрут в зависимости от близости точек
-      const internalRoute = isStartCloserToUser
-        ? [startNearestPoint, ...startLine.slice(startIndex, endIndex + 1),endNearestPoint]
-        : [endNearestPoint, ...startLine.slice(startIndex + 1, endIndex + 1),startNearestPoint];
-  
-      // Устанавливаем маршрут
-      setRoute(internalRoute);
-  
-      // Рассчитываем дистанцию
-      const distance = calculateRouteDistance(internalRoute);
+
+      // Выбираем ближайший лифт к стартовой точке
+      let nearestElevator = null;
+      let minElevatorDistance = Infinity;
+      elevatorFeatures.forEach((elevator) => {
+        const elevatorPoint = {
+          latitude: elevator.geometry.coordinates[1],
+          longitude: elevator.geometry.coordinates[0],
+        };
+        const distance = haversine(start, elevatorPoint);
+        if (distance < minElevatorDistance) {
+          minElevatorDistance = distance;
+          nearestElevator = elevatorPoint;
+        }
+      });
+
+      // Строим маршрут от пользователя до лифта на этаже пользователя
+      const routeToElevator = await buildSingleFloorRoute(start, nearestElevator, userFloor);
+      if (!routeToElevator.length) {
+        console.error("Не удалось построить маршрут до лифта");
+        return;
+      }
+
+      // Строим маршрут от лифта до конечной точки на целевом этаже
+      const routeFromElevator = await buildSingleFloorRoute(nearestElevator, end, endFloor);
+      if (!routeFromElevator.length) {
+        console.error("Не удалось построить маршрут от лифта до конечной точки");
+        return;
+      }
+
+      // Объединяем оба маршрута
+      const combinedRoute = [...routeFromElevator,  nearestElevator, ...routeToElevator];
+      setRoute(combinedRoute);
+
+      // Рассчитываем общую дистанцию маршрута
+      const distance = calculateRouteDistance(combinedRoute);
       setRouteDistance(distance);
-    } catch (error) {
-      console.error("Ошибка при построении маршрута внутри здания:", error);
+
+      return combinedRoute;
+    } else {
+      // Если этажи совпадают — строим маршрут на одном этаже
+      const route = await buildSingleFloorRoute(start, end, userFloor);
+      setRoute(route);
+      const distance = calculateRouteDistance(route);
+      setRouteDistance(distance);
+      return route;
     }
-  };
+  } catch (error) {
+    console.error("Ошибка при построении маршрута внутри здания:", error);
+  }
+};
+
 
   const buildRouteInsideToOutside = async (start, end) => {
     try   {
       // Шаг 1: Находим ближайший выход из здания
-      const exits = mapData.features.filter(
-        (feature) => feature.properties.entrance === "main"
-      );
+      let exits = null;
+      if(pandusBool){
+        exits = mapData.features.filter(
+          (feature) => feature.properties.entrance === "invalid"
+        );
+      }else{
+        exits = mapData.features.filter(
+          (feature) => feature.properties.entrance === "main"
+        );
+      }
   
       if (exits.length === 0) {
         console.log("Не найдено выходов из здания");
@@ -382,7 +513,7 @@ const MapNavigator = () => {
   
       // Шаг 3: Строим внешний маршрут от выхода до конечной точки
       const response = await axios.get(
-        `https://router.project-osrm.org/route/v1/foot/${nearestExit.longitude},${nearestExit.latitude};${end.longitude},${end.latitude}?geometries=geojson`
+        `https://router.project-osrm.org/route/v1/foot/${nearestExit.longitude},${nearestExit.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson`
       );
   
       if (response.data.routes.length === 0) {
@@ -408,9 +539,16 @@ const MapNavigator = () => {
   const buildRouteOutsideToInside = async (start, end) => {
     try {
       // Шаг 1: Находим ближайший вход в здание
-      const entrances = mapData.features.filter(
-        (feature) => feature.properties.entrance === "main"
-      );
+      let exits = null;
+      if(pandusBool){
+        exits = mapData.features.filter(
+          (feature) => feature.properties.entrance === "invalid"
+        );
+      }else{
+        exits = mapData.features.filter(
+          (feature) => feature.properties.entrance === "main"
+        );
+      }
   
       if (entrances.length === 0) {
         console.log("Не найдено входов в здание");
