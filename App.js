@@ -23,7 +23,7 @@ const filterGeojsonByFloor = (geojson, selectedFloor) => {
   return {
     type: "FeatureCollection",
     features: geojson.features.filter(
-      feature => feature.properties.level === selectedFloor.toString() && (feature.geometry.type === "LineString" || feature.geometry.type === "Polygon")
+      feature => feature.properties.level === selectedFloor.toString() && (feature.geometry.type === "LineString" || feature.geometry.type === "Polygon") && !feature.properties.custom
     ),
   };
 };
@@ -130,7 +130,7 @@ const MapNavigator = () => {
             longitude: location.coords.longitude,
           });
           userLocation2 = {
-            latitude: location.coords.latitude,
+            latitude: location.coords.latitude, 
             longitude: location.coords.longitude,
           };
         }
@@ -213,7 +213,7 @@ const MapNavigator = () => {
         }
         break;
       case "down":
-        if (selectedFloor > -1) {
+        if (selectedFloor > 1) {
           setSelectedFloor(level === 1 ? -1 : level - 1);
         }
         break;
@@ -274,7 +274,8 @@ const MapNavigator = () => {
   const handleRegionChange = (region) => {
     const zoom = Math.log2(360 / region.longitudeDelta);
     setZoomLevel(Math.round(zoom));
-  };const buildRouteInsideBuilding = async (start, end) => {
+  };
+  const buildRouteInsideBuilding = async (start, end) => {
     try {
       const lines = mapData.features.filter(
         (feature) =>
@@ -340,10 +341,8 @@ const MapNavigator = () => {
   
       // Строим маршрут в зависимости от близости точек
       const internalRoute = isStartCloserToUser
-        ? [startNearestPoint, ...startLine.slice(startIndex, endIndex + 1), endNearestPoint]
-        : [endNearestPoint, ...startLine.slice(startIndex + 1, endIndex + 1), startNearestPoint
-          
-        ];
+        ? [startNearestPoint, ...startLine.slice(startIndex, endIndex + 1),endNearestPoint]
+        : [endNearestPoint, ...startLine.slice(startIndex + 1, endIndex + 1),startNearestPoint];
   
       // Устанавливаем маршрут
       setRoute(internalRoute);
@@ -357,7 +356,7 @@ const MapNavigator = () => {
   };
 
   const buildRouteInsideToOutside = async (start, end) => {
-    try {
+    try   {
       // Шаг 1: Находим ближайший выход из здания
       const exits = mapData.features.filter(
         (feature) => feature.properties.entrance === "main"
@@ -383,7 +382,7 @@ const MapNavigator = () => {
   
       // Шаг 3: Строим внешний маршрут от выхода до конечной точки
       const response = await axios.get(
-        `https://router.project-osrm.org/route/v1/driving/${nearestExit.longitude},${nearestExit.latitude};${end.longitude},${end.latitude}?geometries=geojson`
+        `https://router.project-osrm.org/route/v1/foot/${nearestExit.longitude},${nearestExit.latitude};${end.longitude},${end.latitude}?geometries=geojson`
       );
   
       if (response.data.routes.length === 0) {
@@ -425,7 +424,7 @@ const MapNavigator = () => {
   
       // Шаг 2: Строим внешний маршрут до входа
       const response = await axios.get(
-        `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${nearestEntrance.longitude},${nearestEntrance.latitude}?geometries=geojson`
+        `https://router.project-osrm.org/route/v1/foot/${start.longitude},${start.latitude};${nearestEntrance.longitude},${nearestEntrance.latitude}?geometries=geojson`
       );
   
       if (response.data.routes.length === 0) {
@@ -518,7 +517,7 @@ const MapNavigator = () => {
 
   const buildRouteOutside = async (start, end) => {
     const response = await axios.get(
-      `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?geometries=geojson`
+      `https://router.project-osrm.org/route/v1/foot/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?geometries=geojson`
     );
   
     if (response.data.routes.length > 0) {
