@@ -12,8 +12,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+<<<<<<< HEAD
       "supportsTablet": true,
       "bundleIdentifier": "design"
+=======
+      "supportsTablet": true
+>>>>>>> c02cd42d4f842c3e441a9a09bfd6a121000d2b6c
     },
     "android": {
       "adaptiveIcon": {

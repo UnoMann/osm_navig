@@ -24,7 +24,10 @@
     "react-native-loading-view": "^1.0.1",
     "react-native-maps": "1.14.0",
     "react-native-permissions": "^5.2.0",
+<<<<<<< HEAD
     "react-native-responsive-screen": "^1.4.2",
+=======
+>>>>>>> c02cd42d4f842c3e441a9a09bfd6a121000d2b6c
     "react-native-svg": "^15.9.0"
   },
   "devDependencies": {
