@@ -10,15 +10,12 @@ let isScanning = false; // Флаг для контроля сканирован
 let readyForReturn = false;
 let whitelist = []; // Хранилище whitelist с координатами маяков
 
-<<<<<<< HEAD
-=======
 function getStronger() {
   let maxRssi = Math.max(...devices.map(item => item.rssi))
   const itemWithMaxFloor = devices.find(item => item.rssi === maxRssi);
   console.log(itemWithMaxFloor.floor);
 }
 
->>>>>>> c02cd42d4f842c3e441a9a09bfd6a121000d2b6c
 // Функция для запроса разрешений
 async function requestPermissions() {
   if (Platform.OS === 'android') {
@@ -47,21 +44,6 @@ async function requestPermissions() {
   }
 }
 
-<<<<<<< HEAD
-// Функция для декодирования UUID из manufacturerData
-function parseUUID(manufacturerData) {
-  if (!manufacturerData) return null;
-
-  const bytes = base64.toByteArray(manufacturerData);
-
-  if (bytes.length < 18) return null;
-
-  const uuid = Array.from(bytes.slice(2, 18))
-    .map((b, i) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  return `${uuid.slice(0, 8)}-${uuid.slice(8, 12)}-${uuid.slice(12, 16)}-${uuid.slice(16, 20)}-${uuid.slice(20)}`;
-=======
 function parseMacAddress(device) {
   let mac = null;
 
@@ -95,7 +77,6 @@ function decodeBase64ToBytes(base64String) {
     bytes.push(binaryString.charCodeAt(i)); // Преобразуем каждый символ в байт
   }
   return bytes;
->>>>>>> c02cd42d4f842c3e441a9a09bfd6a121000d2b6c
 }
 
 // Улучшенный расчет расстояния с учетом шума и корректировок
@@ -121,11 +102,7 @@ function calculateLocation(whitelist, devices) {
   const DEFAULT_TXPOWER = -59; // Стандартная мощность передатчика
 
   const beaconData = devices.map(device => {
-<<<<<<< HEAD
-    const beacon = whitelist.find(w => w.uuid === device.uuid);
-=======
     const beacon = whitelist.find(w => w.mac === device.mac);
->>>>>>> c02cd42d4f842c3e441a9a09bfd6a121000d2b6c
     if (!beacon || device.rssi >= 0) return null;
 
     const txPower = beacon.txPower ?? DEFAULT_TXPOWER;
@@ -181,17 +158,6 @@ export async function startScanning(inputWhitelist) {
     }
 
     if (device && device.manufacturerData) {
-<<<<<<< HEAD
-      const uuid = parseUUID(device.manufacturerData);
-
-      if (uuid && whitelist.some(w => w.uuid === uuid)) {
-        const existingIndex = devices.findIndex(d => d.uuid === uuid);
-
-        if (existingIndex !== -1) {
-          devices[existingIndex] = { uuid, rssi: device.rssi, lastSeen: Date.now() };
-        } else {
-          devices.push({ uuid, rssi: device.rssi, lastSeen: Date.now() });
-=======
       const mac = device.id;
 
       if (mac && whitelist.some(w => w.mac === mac)) {
@@ -201,7 +167,6 @@ export async function startScanning(inputWhitelist) {
           devices[existingIndex] = { mac, rssi: device.rssi, lastSeen: Date.now() };
         } else {
           devices.push({ mac, rssi: device.rssi, lastSeen: Date.now() });
->>>>>>> c02cd42d4f842c3e441a9a09bfd6a121000d2b6c
         }
 
         if (devices.length >= 3) {
@@ -218,11 +183,7 @@ export async function startScanning(inputWhitelist) {
 }
 
 // Удаление старых устройств
-<<<<<<< HEAD
-function removeOldDevices(timeoutMs = 5000) {
-=======
 function removeOldDevices(timeoutMs = 6000) {
->>>>>>> c02cd42d4f842c3e441a9a09bfd6a121000d2b6c
   const now = Date.now();
   devices.forEach((device, index) => {
     if (now - device.lastSeen > timeoutMs) {
