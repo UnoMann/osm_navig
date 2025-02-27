@@ -112,8 +112,11 @@ const MapNavigator = () => {
 
   useEffect(() => {
     bleRef.current = ble;
-  }, [ble]);
-  ////////////////////////////design by MaximShep//////////////
+  }, [ble]); 
+  useEffect(() => {
+    console.log(route);
+  }, [route]);
+  
     const [fontsLoaded, fontError] = useFonts({
       'Regular': require('./assets/font/UKIJQara.ttf'),
       'Bold': require('./assets/font/UKIJQaraBold.ttf'),
@@ -669,7 +672,7 @@ const buildRouteInsideBuilding = async (start, end) => {
   
       // Шаг 3: Строим внешний маршрут от выхода до конечной точки
       const response = await axios.get(
-        `https://router.project-osrm.org/route/v1/foot/${nearestExit.longitude},${nearestExit.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson`
+        `https://router.project-osrm.org/route/v1/foot/${nearestExit.longitude},${nearestExit.latitude};${end.longitude},${end.latitude}?steps=true&geometries=geojson`
       );
   
       if (response.data.routes.length === 0) {
@@ -718,7 +721,7 @@ const buildRouteInsideBuilding = async (start, end) => {
   
       // Шаг 2: Строим внешний маршрут до входа
       const response = await axios.get(
-        `https://router.project-osrm.org/route/v1/foot/${start.longitude},${start.latitude};${nearestEntrance.longitude},${nearestEntrance.latitude}?geometries=geojson`
+        `https://router.project-osrm.org/route/v1/foot/${start.longitude},${start.latitude};${nearestEntrance.longitude},${nearestEntrance.latitude}?steps=true&geometries=geojson`
       );
   
       if (response.data.routes.length === 0) {
@@ -811,7 +814,7 @@ const buildRouteInsideBuilding = async (start, end) => {
 
   const buildRouteOutside = async (start, end) => {
     const response = await axios.get(
-      `https://router.project-osrm.org/route/v1/foot/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?geometries=geojson`
+      `https://router.project-osrm.org/route/v1/foot/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?steps=true&geometries=geojson`
     );
   
     if (response.data.routes.length > 0) {
