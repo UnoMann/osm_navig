@@ -12,6 +12,7 @@
     "base64-js": "^1.5.1",
     "expo": "~51.0.28",
     "expo-location": "~17.0.1",
+    "expo-permissions": "^14.4.0",
     "expo-status-bar": "~1.12.1",
     "haversine": "^1.1.1",
     "priorityqueuejs": "^2.0.0",
@@ -23,7 +24,7 @@
     "react-native-loading-spinner-overlay": "^3.0.1",
     "react-native-loading-view": "^1.0.1",
     "react-native-maps": "1.14.0",
-    "react-native-permissions": "^5.2.0",
+    "react-native-permissions": "^5.2.5",
     "react-native-responsive-screen": "^1.4.2",
     "react-native-svg": "^15.9.0"
   },
