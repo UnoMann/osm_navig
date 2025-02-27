@@ -8,7 +8,7 @@ import axios from 'axios';
 import { mapData } from './data';
 import LoadingView from 'react-native-loading-view';
 import haversine from "haversine";
-import { startScanning, stopScanning, getUserLocation, getBleReady } from './components/getUserLocationBle';
+import { startScanning, stopScanning, getUserLocation, getBleReady, getFloor } from './components/getUserLocationBle';
 
 let userLocation2 = null;
 const humanSpeed = 5; // Скорость человека в км/ч
@@ -706,14 +706,14 @@ const buildRouteInsideBuilding = async (start, end) => {
         );
       }
   
-      if (entrances.length === 0) {
+      if (exits.length === 0) {
         console.log("Не найдено входов в здание");
         return;
       }
   
       const nearestEntrance = {
-        latitude: entrances[0].geometry.coordinates[1],
-        longitude: entrances[0].geometry.coordinates[0],
+        latitude: exits[0].geometry.coordinates[1],
+        longitude: exits[0].geometry.coordinates[0],
       };
   
       // Шаг 2: Строим внешний маршрут до входа

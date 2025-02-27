@@ -10,7 +10,7 @@ let isScanning = false; // Флаг для контроля сканирован
 let readyForReturn = false;
 let whitelist = []; // Хранилище whitelist с координатами маяков
 
-function getStronger() {
+function getFloor() {
   let maxRssi = Math.max(...devices.map(item => item.rssi))
   const itemWithMaxFloor = devices.find(item => item.rssi === maxRssi);
   console.log(itemWithMaxFloor.floor);
@@ -98,25 +98,42 @@ function calculateDistance(txPower, rssi) {
 function calculateLocation(whitelist, devices) {
   const PATH_LOSS_EXPONENT = 2; // Коэффициент затухания
   const MIN_DISTANCE = 0.1; // Минимальное расстояние
-  const MAX_DISTANCE = 100; // Максимальное расстояние
+  const MAX_DISTANCE = Infinity; // Максимальное расстояние
   const DEFAULT_TXPOWER = -59; // Стандартная мощность передатчика
 
   const beaconData = devices.map(device => {
     const beacon = whitelist.find(w => w.mac === device.mac);
-    if (!beacon || device.rssi >= 0) return null;
-
-    const txPower = beacon.txPower ?? DEFAULT_TXPOWER;
+    if (!beacon) {
+      console.log(`Device ${device.mac} not found in whitelist.`);
+      return null;
+    }
+  
+    const txPower = beacon.txPower;
+    if (!txPower) {
+      console.log(`Device ${device.mac} has no txPower in whitelist.`);
+      return null;
+    }
+  
     const distance = calculateDistance(txPower, device.rssi);
-
-    if (distance < MIN_DISTANCE || distance > MAX_DISTANCE) return null;
-
+    console.log(`Calculated distance for ${device.mac}: ${distance}`);
+    if (distance < MIN_DISTANCE || distance > MAX_DISTANCE) {
+      console.log(`Device ${device.mac} skipped due to invalid distance: ${distance}`);
+      return null;
+    }
+  
+    const rLat = beacon.longitude;
+    const rLon = beacon.latitude;
     return {
-      latitude: beacon.latitude,
-      longitude: beacon.longitude,
+      latitude: rLat,
+      longitude: rLon,
       distance,
     };
   }).filter(Boolean);
+  
+  console.log('Filtered beacon data:', beaconData);
 
+  console.log(devices)
+  console.log('Filtered beacon data:', beaconData);
   if (beaconData.length < 3) {
     console.log('Not enough beacons for triangulation');
     return null;
@@ -161,6 +178,7 @@ export async function startScanning(inputWhitelist) {
       const mac = device.id;
 
       if (mac && whitelist.some(w => w.mac === mac)) {
+        console.log(mac+"<mac (if),  " + device.rssi)
         const existingIndex = devices.findIndex(d => d.mac === mac);
 
         if (existingIndex !== -1) {
