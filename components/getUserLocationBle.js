@@ -12,8 +12,12 @@ let whitelist = []; // Хранилище whitelist с координатами 
 
 function getFloor() {
   let maxRssi = Math.max(...devices.map(item => item.rssi))
+  console.warn("MAX RSSI-"+maxRssi)
   const itemWithMaxFloor = devices.find(item => item.rssi === maxRssi);
-  console.log(itemWithMaxFloor.floor);
+  console.warn("ID-"+itemWithMaxFloor.id)
+  const itemwhite = whitelist.find(item => item.mac === itemWithMaxFloor.id)
+  console.warn("FLOOR-"+itemwhite.floor)
+  return itemWithMaxFloor.floor;
 }
 
 // Функция для запроса разрешений
@@ -101,6 +105,9 @@ function calculateLocation(whitelist, devices) {
   const MAX_DISTANCE = Infinity; // Максимальное расстояние
   const DEFAULT_TXPOWER = -59; // Стандартная мощность передатчика
 
+  const userFloor = getFloor();
+  console.log(userFloor)
+
   const beaconData = devices.map(device => {
     const beacon = whitelist.find(w => w.mac === device.mac);
     if (!beacon) {
@@ -113,9 +120,14 @@ function calculateLocation(whitelist, devices) {
       console.log(`Device ${device.mac} has no txPower in whitelist.`);
       return null;
     }
+
+    if(userFloor && userFloor != beacon.floor){
+      console.log('Device '+beacon.floor+' has not on a ' + userFloor + '.');
+      return null;
+    }
   
     const distance = calculateDistance(txPower, device.rssi);
-    console.log(`Calculated distance for ${device.mac}: ${distance}`);
+    // console.log(`Calculated distance for ${device.mac}: ${distance}`);
     if (distance < MIN_DISTANCE || distance > MAX_DISTANCE) {
       console.log(`Device ${device.mac} skipped due to invalid distance: ${distance}`);
       return null;
@@ -190,6 +202,8 @@ export async function startScanning(inputWhitelist) {
         if (devices.length >= 3) {
           readyForReturn = true;
           userLocation = calculateLocation(whitelist, devices);
+        }else{
+          readyForReturn = false;
         }
       }
     }

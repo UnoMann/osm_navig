@@ -1,4 +1,3 @@
-import {useFonts} from 'expo-font';
 import { heightPercentageToDP, widthPercentageToDP } from "react-native-responsive-screen";
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import MapView, { Marker, Polyline } from 'react-native-maps';
@@ -117,20 +116,6 @@ const MapNavigator = () => {
     console.log(route);
   }, [route]);
   
-    const [fontsLoaded, fontError] = useFonts({
-      'Regular': require('./assets/font/UKIJQara.ttf'),
-      'Bold': require('./assets/font/UKIJQaraBold.ttf'),
-    });
-  
-    const onLayoutRootView = useCallback(async () => {
-      if (fontsLoaded || fontError) {
-        await SplashScreen.hideAsync();
-      }
-    }, [fontsLoaded, fontError]);
-  
-    if (!fontsLoaded && !fontError) {
-      return null;
-    }
     // Поиск местоположения через Nominatim
     const handleSearch = async () => {
       try {
@@ -1083,7 +1068,7 @@ const buildRouteInsideBuilding = async (start, end) => {
             {text: 'OK', onPress: () => console.log('OK Pressed')},
           ]);
       }}>
-        <Text style={{fontFamily:'Regular'}}>Добавить точку!</Text>
+        <Text style={{}}>Добавить точку!</Text>
       </TouchableOpacity>
       <View style={styles.chooseCategory}>
           <TouchableOpacity style={[styles.categoryItem, {backgroundColor: isNormal ? 'white' : '#f6f6f6'}]} onPress={()=>{
@@ -1094,7 +1079,7 @@ const buildRouteInsideBuilding = async (start, end) => {
             setIsInvalid(false),
             setCategoty('normal')
           }}>
-            <Text style={{fontFamily:'Regular'}}>Без багажа</Text>
+            <Text style={{}}>Без багажа</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.categoryItem, {backgroundColor: isBagage ? 'white' : '#f6f6f6'}]} onPress={()=>{
             setElevatorBool(true)
@@ -1104,7 +1089,7 @@ const buildRouteInsideBuilding = async (start, end) => {
             setIsInvalid(false),
             setCategoty('bagage')
           }}>
-            <Text style={{fontFamily:'Regular'}}>С багажом</Text>
+            <Text style={{}}>С багажом</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.categoryItem, {backgroundColor: isInvalid ? 'white' : '#f6f6f6'}]} onPress={()=>{
             setElevatorBool(true)
@@ -1114,7 +1099,7 @@ const buildRouteInsideBuilding = async (start, end) => {
             setIsNormal(false),
             setCategoty('invalid')
           }}>
-            <Text style={{fontFamily:'Regular'}}>На коляске</Text>
+            <Text style={{}}>На коляске</Text>
           </TouchableOpacity>
       </View>
       <TouchableOpacity style={[styles.button, {backgroundColor:'#4F9BFF', marginTop:heightPercentageToDP(1)}]} onPress={()=>{
@@ -1126,7 +1111,7 @@ const buildRouteInsideBuilding = async (start, end) => {
               buildRoute,
               setOnNavig(true)
       }}>
-              <Text style={{color:'white', fontFamily:'Regular'}}>Погнали!</Text>
+              <Text style={{color:'white'}}>Погнали!</Text>
       </TouchableOpacity>
           </View>    
             ) : (
@@ -1149,7 +1134,7 @@ const buildRouteInsideBuilding = async (start, end) => {
               setIndicator(images.map);
               clearRoute()
       }}>
-              <Text style={{color:'white', fontFamily:'Regular'}}>Завершить!</Text>
+              <Text style={{color:'white'}}>Завершить!</Text>
       </TouchableOpacity>
             </View>
             )}
@@ -1179,7 +1164,6 @@ const styles = StyleSheet.create({
   distanceText: {
     color: 'black',
     fontSize: 16,
-    fontFamily:'Regular',
     width: widthPercentageToDP(45),
     fontSize:widthPercentageToDP(3)
   },
@@ -1227,7 +1211,6 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     borderRadius: 5,
     marginLeft:widthPercentageToDP(2),
-    fontFamily:'Regular',
     marginRight:widthPercentageToDP(1.3)
 
   },
@@ -1271,8 +1254,7 @@ const styles = StyleSheet.create({
     marginTop:heightPercentageToDP(1)
   },
   floorText:{
-    fontSize:widthPercentageToDP(4.4),
-    fontFamily:'Regular'
+    fontSize:widthPercentageToDP(4.4)
   },
   profile:{
     width:widthPercentageToDP(4),
@@ -1309,7 +1291,6 @@ const styles = StyleSheet.create({
     marginLeft:widthPercentageToDP(4)
     },
     locationText:{
-      fontFamily:'Regular',
       marginLeft:widthPercentageToDP(2)
     },
     button:{
