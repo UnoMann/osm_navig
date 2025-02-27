@@ -365,6 +365,7 @@ const MapNavigator = () => {
         if (location) {
           setUserLocation(location);
           userLocation2 = location;
+          userFloor = getFloor();
         } else {
           console.log("BLE не возвращает корректную локацию");
         }
